@@ -153,14 +153,22 @@ empty_min.obj: C:/ti/xdctools_3_32_00_06_core/packages/xdc/runtime/Error.h
 empty_min.obj: C:/ti/ccs1230/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stdbool.h
 empty_min.obj: C:/ti/tirtos_tivac_2_16_01_14/products/tidrivers_tivac_2_16_01_13/packages/ti/drivers/GPIO.h
 empty_min.obj: C:/ti/TivaWare_C_Series-2.2.0.295/driverlib/gpio.h
+empty_min.obj: C:/ti/tirtos_tivac_2_16_01_14/products/tidrivers_tivac_2_16_01_13/packages/ti/drivers/UART.h
 empty_min.obj: ../Board.h
 empty_min.obj: ../EK_TM4C1294XL.h
 empty_min.obj: C:/ti/TivaWare_C_Series-2.2.0.295/inc/hw_memmap.h
 empty_min.obj: C:/ti/TivaWare_C_Series-2.2.0.295/driverlib/pin_map.h
 empty_min.obj: C:/ti/TivaWare_C_Series-2.2.0.295/utils/uartstdio.h
+empty_min.obj: C:/ti/TivaWare_C_Series-2.2.0.295/utils/ustdlib.h
+empty_min.obj: C:/ti/ccs1230/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/time.h
+empty_min.obj: C:/ti/ccs1230/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/abi_prefix.h
+empty_min.obj: C:/ti/ccs1230/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/xlocale/_time.h
 empty_min.obj: C:/ti/TivaWare_C_Series-2.2.0.295/driverlib/sysctl.h
 empty_min.obj: C:/ti/tirtos_tivac_2_16_01_14/products/bios_6_45_02_31/packages/ti/sysbios/knl/Clock.h
 empty_min.obj: C:/ti/tirtos_tivac_2_16_01_14/products/bios_6_45_02_31/packages/ti/sysbios/knl/package/Clock_TimerProxy.h
+empty_min.obj: C:/ti/TivaWare_C_Series-2.2.0.295/driverlib/rom.h
+empty_min.obj: C:/ti/TivaWare_C_Series-2.2.0.295/driverlib/rom_map.h
+empty_min.obj: C:/ti/TivaWare_C_Series-2.2.0.295/driverlib/uart.h
 
 ../empty_min.c:
 
@@ -468,6 +476,8 @@ C:/ti/tirtos_tivac_2_16_01_14/products/tidrivers_tivac_2_16_01_13/packages/ti/dr
 
 C:/ti/TivaWare_C_Series-2.2.0.295/driverlib/gpio.h:
 
+C:/ti/tirtos_tivac_2_16_01_14/products/tidrivers_tivac_2_16_01_13/packages/ti/drivers/UART.h:
+
 ../Board.h:
 
 ../EK_TM4C1294XL.h:
@@ -478,9 +488,23 @@ C:/ti/TivaWare_C_Series-2.2.0.295/driverlib/pin_map.h:
 
 C:/ti/TivaWare_C_Series-2.2.0.295/utils/uartstdio.h:
 
+C:/ti/TivaWare_C_Series-2.2.0.295/utils/ustdlib.h:
+
+C:/ti/ccs1230/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/time.h:
+
+C:/ti/ccs1230/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/abi_prefix.h:
+
+C:/ti/ccs1230/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/xlocale/_time.h:
+
 C:/ti/TivaWare_C_Series-2.2.0.295/driverlib/sysctl.h:
 
 C:/ti/tirtos_tivac_2_16_01_14/products/bios_6_45_02_31/packages/ti/sysbios/knl/Clock.h:
 
 C:/ti/tirtos_tivac_2_16_01_14/products/bios_6_45_02_31/packages/ti/sysbios/knl/package/Clock_TimerProxy.h:
+
+C:/ti/TivaWare_C_Series-2.2.0.295/driverlib/rom.h:
+
+C:/ti/TivaWare_C_Series-2.2.0.295/driverlib/rom_map.h:
+
+C:/ti/TivaWare_C_Series-2.2.0.295/driverlib/uart.h:
 

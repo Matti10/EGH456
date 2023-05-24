@@ -50,7 +50,7 @@
 // #include <ti/drivers/I2C.h>
 // #include <ti/drivers/SDSPI.h>
 // #include <ti/drivers/SPI.h>
-// #include <ti/drivers/UART.h>
+#include <ti/drivers/UART.h>
 // #include <ti/drivers/USBMSCHFatFs.h>
 // #include <ti/drivers/Watchdog.h>
 // #include <ti/drivers/WiFi.h>
@@ -62,8 +62,12 @@
 #include <inc/hw_memmap.h>
 #include "driverlib/pin_map.h"
 #include "utils/uartstdio.h"
+#include "utils/ustdlib.h"
 #include "driverlib/sysctl.h"
 #include <ti/sysbios/knl/Clock.h>
+#include "driverlib/rom.h"
+#include "driverlib/rom_map.h"
+#include "driverlib/uart.h"
 
 uint32_t g_ui32SysClock;
 
@@ -91,7 +95,7 @@ Char task1Stack[TASKSTACKSIZE];
 #define MOTOR_MAX_DUTY 100
 
 bool *hallStates;
-double rpm = 0;
+double rpm = 0.0;
 uint16_t input_rpm = 500;
 
 //
@@ -115,25 +119,29 @@ void motor_eStop()
 //
 void motor_Driver()
 {
+    UARTprintf("Starting Motor Driver");
     //This needs to:
     // Set motor RPM using void setDuty(uint16_t duty);
     // Will likely need to be setup in a closed loop with motor_GetRPM()
     // Will likely need to call motor_accelerate() & motor_decelerate
     uint8_t duty = 50;
+    enableMotor();
 
     while(1)
     {
-        if (rpm > input_rpm && rpm > 0)
+        if (rpm > input_rpm && duty > 0)
         {
             duty--;
         }
-        if (rpm < input_rpm && rpm < MOTOR_MAX_DUTY)
+        if (rpm < input_rpm && duty < MOTOR_MAX_DUTY)
         {
             duty++;
         }
 
         setDuty(duty);
+        *hallStates = motor_getHallState(); //this should be removed when other thread runs
         updateMotor(hallStates[0],hallStates[1],hallStates[2]); //hall states to be retreived by rpm reader task
+
     }
 }
 
@@ -142,6 +150,8 @@ void motor_Driver()
 //
 void motor_GetRPM()
 {
+    UARTprintf("Starting RPM Task");
+
     //this assumes one hall trigger (per sensor) per revolution
     Uint32 startTime, endTime, i, temp1, temp2, cumSum;
 
@@ -188,6 +198,8 @@ void motor_GetRPM()
 
 
         rpm = (cumSum/bufferSize); //RACE CONDITION add access control later
+
+        UARTprintf("%f",rpm);
     }
 }
 
@@ -215,25 +227,29 @@ void motor_accelerate(bool direction)
 
 
 
-void
-ConfigureUART(void)
+//*****************************************************************************
+//
+// Configure the UART and its pins.  This must be called before UARTprintf().
+//
+//*****************************************************************************
+void ConfigureUART(void)
 {
     //
     // Enable the GPIO Peripheral used by the UART.
     //
-    MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
 
     //
     // Enable UART0
     //
-    MAP_SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
 
     //
     // Configure GPIO Pins for UART mode.
     //
-    MAP_GPIOPinConfigure(GPIO_PA0_U0RX);
-    MAP_GPIOPinConfigure(GPIO_PA1_U0TX);
-    MAP_GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
+    GPIOPinConfigure(GPIO_PA0_U0RX);
+    GPIOPinConfigure(GPIO_PA1_U0TX);
+    GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
 
     //
     // Initialize the UART for console I/O.
@@ -247,7 +263,8 @@ ConfigureUART(void)
  */
 int main(void)
 {
-    Task_Params taskParams;
+    Task_Params task0Params;
+    Task_Params task1Params;
 
     /* Call board init functions */
     Board_initGeneral();
@@ -268,10 +285,13 @@ int main(void)
                                                 SYSCTL_CFG_VCO_480), 120000000);
 
 
-//    UART_config();
-//
-//    Uartprintf("test");
+    //
+    // Initialize the UART.
+    //
+    ConfigureUART();
 
+    UARTprintf("\033[2J\033[H");
+    UARTprintf("Welcome to the 'car'");
     //
     // Init Motor
     //
@@ -281,16 +301,16 @@ int main(void)
     motor_initHall();
 
     /* Construct motorDriver Task  thread */
-    Task_Params_init(&taskParams);
-    taskParams.stackSize = TASKSTACKSIZE;
-    taskParams.stack = &task0Stack;
-    Task_construct(&task0Struct, (Task_FuncPtr)motor_Driver, &taskParams, NULL);
+    Task_Params_init(&task0Params);
+    task0Params.stackSize = TASKSTACKSIZE;
+    task0Params.stack = &task0Stack;
+    Task_construct(&task0Struct, (Task_FuncPtr)motor_Driver, &task0Params, NULL);
 
     /* Construct RPMr Task  thread */
-    Task_Params_init(&taskParams);
-    taskParams.stackSize = TASKSTACKSIZE;
-    taskParams.stack = &task1Stack;
-    Task_construct(&task1Struct, (Task_FuncPtr)motor_GetRPM, &taskParams, NULL);
+    Task_Params_init(&task1Params);
+    task1Params.stackSize = TASKSTACKSIZE;
+    task1Params.stack = &task1Stack;
+    Task_construct(&task1Struct, (Task_FuncPtr)motor_GetRPM, &task1Params, NULL);
 
 
 

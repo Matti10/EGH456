@@ -12,14 +12,16 @@ GEN_CMDS__FLAG := -l"configPkg/linker.cmd"
 ORDERED_OBJS += \
 "./EK_TM4C1294XL.obj" \
 "./empty_min.obj" \
+"./utils/uartstdio.obj" \
+"./utils/ustdlib.obj" \
 "../EK_TM4C1294XL.cmd" \
 "../drivers/MotorLib.lib" \
 $(GEN_CMDS__FLAG) \
+-l"C:/ti/TivaWare_C_Series-2.2.0.295/driverlib/ccs/Debug/driverlib.lib" \
 -lmotorlib.lib \
 -l"C:/Users/matti/workspace_v12/Assign2-Grp14/empty_min_EK_TM4C1294XL_TI/drivers/MotorLib.lib" \
 -l"C:/ti/tirtos_tivac_2_16_01_14/products/TivaWare_C_Series-2.1.1.71b/grlib/ccs/Debug/grlib.lib" \
 -l"C:/ti/tirtos_tivac_2_16_01_14/products/TivaWare_C_Series-2.1.1.71b/usblib/ccs/Debug/usblib.lib" \
--l"C:/ti/tirtos_tivac_2_16_01_14/products/TivaWare_C_Series-2.1.1.71b/driverlib/ccs/Debug/driverlib.lib" \
 -llibc.a \
 
 -include ../makefile.init
@@ -31,8 +33,10 @@ RMDIR := RMDIR /S/Q
 -include sources.mk
 -include subdir_vars.mk
 -include drivers/subdir_vars.mk
+-include utils/subdir_vars.mk
 -include subdir_rules.mk
 -include drivers/subdir_rules.mk
+-include utils/subdir_rules.mk
 -include objects.mk
 
 ifneq ($(MAKECMDGOALS),clean)
@@ -143,15 +147,15 @@ all: $(OBJS) $(CMD_SRCS) $(LIB_SRCS) $(GEN_CMDS)
 empty_min_EK_TM4C1294XL_TI.out: $(OBJS) $(CMD_SRCS) $(LIB_SRCS) $(GEN_CMDS)
 	@echo 'Building target: "$@"'
 	@echo 'Invoking: Arm Linker'
-	"C:/ti/ccs1230/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/bin/armcl" -mv7M4 --code_state=16 --float_support=FPv4SPD16 -me --define=ccs="ccs" --define=PART_TM4C1294NCPDT --define=ccs --define=TIVAWARE -g --gcc --diag_warning=225 --diag_warning=255 --diag_wrap=off --display_error_number --gen_func_subsections=on --abi=eabi -z -m"empty_min_EK_TM4C1294XL_TI.map" --heap_size=0 --stack_size=512 -i"C:/Users/matti/workspace_v12/Assign2-Grp14/empty_min_EK_TM4C1294XL_TI/drivers" -i"C:/ti/ccs1230/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/lib" -i"C:/ti/ccs1230/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include" --reread_libs --diag_wrap=off --display_error_number --warn_sections --xml_link_info="empty_min_EK_TM4C1294XL_TI_linkInfo.xml" --rom_model -o "empty_min_EK_TM4C1294XL_TI.out" $(ORDERED_OBJS)
+	"C:/ti/ccs1230/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/bin/armcl" -mv7M4 --code_state=16 --float_support=FPv4SPD16 -me --define=ccs="ccs" --define=PART_TM4C1294NCPDT --define=ccs --define=TIVAWARE -g --gcc --diag_warning=225 --diag_warning=255 --diag_wrap=off --display_error_number --gen_func_subsections=on --abi=eabi -z -m"empty_min_EK_TM4C1294XL_TI.map" --heap_size=0 --stack_size=512 -i"C:/Users/matti/workspace_v12/Assign2-Grp14/empty_min_EK_TM4C1294XL_TI/drivers" -i"C:/ti/TivaWare_C_Series-2.2.0.295" -i"C:/ti/ccs1230/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/lib" -i"C:/ti/ccs1230/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include" --reread_libs --diag_wrap=off --display_error_number --warn_sections --xml_link_info="empty_min_EK_TM4C1294XL_TI_linkInfo.xml" --rom_model -o "empty_min_EK_TM4C1294XL_TI.out" $(ORDERED_OBJS)
 	@echo 'Finished building target: "$@"'
 	@echo ' '
 
 # Other Targets
 clean:
 	-$(RM) $(GEN_FILES__QUOTED)$(EXE_OUTPUTS__QUOTED)
-	-$(RM) "EK_TM4C1294XL.obj" "empty_min.obj" 
-	-$(RM) "EK_TM4C1294XL.d" "empty_min.d" 
+	-$(RM) "EK_TM4C1294XL.obj" "empty_min.obj" "utils\uartstdio.obj" "utils\ustdlib.obj" 
+	-$(RM) "EK_TM4C1294XL.d" "empty_min.d" "utils\uartstdio.d" "utils\ustdlib.d" 
 	-$(RMDIR) $(GEN_MISC_DIRS__QUOTED)
 	-@echo 'Finished clean'
 	-@echo ' '

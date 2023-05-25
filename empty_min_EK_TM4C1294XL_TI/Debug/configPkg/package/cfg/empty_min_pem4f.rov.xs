@@ -12898,10 +12898,12 @@ __o = __obj[595]  // ti.sysbios.knl.Idle/configNameMap$/'xdc.runtime/Errors'/fie
 __o = __obj[596]  // ti.sysbios.knl.Idle/coreList
     __o['$category'] = String(java.net.URLDecoder.decode('Vector', 'UTF-8'))
     __o['$name'] = String(java.net.URLDecoder.decode('ti.sysbios.knl.Idle%2FcoreList', 'UTF-8'))
+    __o['0'] = 0
 
 __o = __obj[597]  // ti.sysbios.knl.Idle/funcList
     __o['$category'] = String(java.net.URLDecoder.decode('Vector', 'UTF-8'))
     __o['$name'] = String(java.net.URLDecoder.decode('ti.sysbios.knl.Idle%2FfuncList', 'UTF-8'))
+    __o['0'] = String(java.net.URLDecoder.decode('%26ti_sysbios_hal_Hwi_checkStack', 'UTF-8'))
 
 __o = __obj[598]  // ti.sysbios.knl.Idle/idleFxns
     __o['$category'] = String(java.net.URLDecoder.decode('Vector', 'UTF-8'))
@@ -14453,7 +14455,7 @@ __o = __obj[757]  // ti.sysbios.hal.Hwi
     __o['Object__heap'] = null
     __o['Object__sizeof'] = 0
     __o['Object__table'] = null
-    __o['checkStackFlag'] = false
+    __o['checkStackFlag'] = true
     __o['common$'] = __obj[1017.0]
     __o['configNameMap$'] = __obj[1018.0]
     __o['dispatcherAutoNestingSupport'] = true
@@ -17950,7 +17952,7 @@ __o = __obj[1064]  // ti.targets.arm.elf.M4F/ccConfigOpts
 __o = __obj[1065]  // ti.targets.arm.elf.M4F/ccOpts
     __o['$category'] = String(java.net.URLDecoder.decode('Struct', 'UTF-8'))
     __o['$name'] = String(java.net.URLDecoder.decode('ti.targets.arm.elf.M4F%2FccOpts', 'UTF-8'))
-    __o['prefix'] = String(java.net.URLDecoder.decode('-mv7M4+--code_state%3D16+--float_support%3DFPv4SPD16+-me+--include_path%3D%22C%3A%2Fti%2FTivaWare_C_Series-2.2.0.295%22+--include_path%3D%22C%3A%2FUsers%2Fmatti%2Fworkspace_v12%2FAssign2-Grp14%2Fempty_min_EK_TM4C1294XL_TI%2Fdrivers%22+--include_path%3D%22C%3A%2FUsers%2Fmatti%2Fworkspace_v12%2FAssign2-Grp14%2Fempty_min_EK_TM4C1294XL_TI%22+--include_path%3D%22C%3A%2FUsers%2Fmatti%2Fworkspace_v12%2FAssign2-Grp14%2Fempty_min_EK_TM4C1294XL_TI%22+--include_path%3D%22C%3A%2Fti%2Ftirtos_tivac_2_16_01_14%2Fproducts%2Fbios_6_45_02_31%2Fpackages%2Fti%2Fsysbios%2Fposix%22+--include_path%3D%22C%3A%2Fti%2Fccs1230%2Fccs%2Ftools%2Fcompiler%2Fti-cgt-arm_20.2.7.LTS%2Finclude%22+--define%3Dccs%3D%22ccs%22+--define%3DPART_TM4C1294NCPDT+--define%3Dccs+--define%3DTIVAWARE+-g+--gcc+--diag_warning%3D225+--diag_warning%3D255+--diag_wrap%3Doff+--display_error_number+--gen_func_subsections%3Don+--abi%3Deabi+++-qq+-pdsw225', 'UTF-8'))
+    __o['prefix'] = String(java.net.URLDecoder.decode('-mv7M4+--code_state%3D16+--float_support%3DFPv4SPD16+-me+--include_path%3D%22C%3A%2Fti%2Ftirtos_tivac_2_16_01_14%2Fproducts%2Fbios_6_45_02_31%2Fpackages%2F%22+--include_path%3D%22C%3A%2Fti%2Ftirtos_tivac_2_16_01_14%2Fproducts%2Ftidrivers_tivac_2_16_01_13%2Fpackages%2Fti%2Fdrivers%2Fgpio%22+--include_path%3D%22C%3A%2Fti%2FTivaWare_C_Series-2.2.0.295%22+--include_path%3D%22C%3A%2FUsers%2Fmatti%2Fworkspace_v12%2FAssign2-Grp14%2Fempty_min_EK_TM4C1294XL_TI%2Fdrivers%22+--include_path%3D%22C%3A%2FUsers%2Fmatti%2Fworkspace_v12%2FAssign2-Grp14%2Fempty_min_EK_TM4C1294XL_TI%2Futils%22+--include_path%3D%22C%3A%2FUsers%2Fmatti%2Fworkspace_v12%2FAssign2-Grp14%2Fempty_min_EK_TM4C1294XL_TI%22+--include_path%3D%22C%3A%2FUsers%2Fmatti%2Fworkspace_v12%2FAssign2-Grp14%2Fempty_min_EK_TM4C1294XL_TI%22+--include_path%3D%22C%3A%2Fti%2Ftirtos_tivac_2_16_01_14%2Fproducts%2Fbios_6_45_02_31%2Fpackages%2Fti%2Fsysbios%2Fposix%22+--include_path%3D%22C%3A%2Fti%2Fccs1230%2Fccs%2Ftools%2Fcompiler%2Fti-cgt-arm_20.2.7.LTS%2Finclude%22+--define%3Dccs%3D%22ccs%22+--define%3DPART_TM4C1294NCPDT+--define%3Dccs+--define%3DTIVAWARE+-g+--gcc+--diag_warning%3D225+--diag_warning%3D255+--diag_wrap%3Doff+--display_error_number+--gen_func_subsections%3Don+--abi%3Deabi+++-qq+-pdsw225', 'UTF-8'))
     __o['suffix'] = String(java.net.URLDecoder.decode('', 'UTF-8'))
 
 __o = __obj[1066]  // ti.targets.arm.elf.M4F/compatibleSuffixes

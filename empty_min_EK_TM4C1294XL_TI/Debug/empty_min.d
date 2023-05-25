@@ -200,6 +200,15 @@ empty_min.obj: C:/ti/tirtos_tivac_2_16_01_14/products/bios_6_45_02_31/packages/t
 empty_min.obj: C:/ti/TivaWare_C_Series-2.2.0.295/driverlib/rom.h
 empty_min.obj: C:/ti/TivaWare_C_Series-2.2.0.295/driverlib/rom_map.h
 empty_min.obj: C:/ti/TivaWare_C_Series-2.2.0.295/driverlib/uart.h
+empty_min.obj: C:/ti/tirtos_tivac_2_16_01_14/products/bios_6_45_02_31/packages/ti/sysbios/gates/GateMutex.h
+empty_min.obj: C:/ti/xdctools_3_32_00_06_core/packages/xdc/runtime/Types.h
+empty_min.obj: C:/ti/xdctools_3_32_00_06_core/packages/xdc/runtime/IInstance.h
+empty_min.obj: C:/ti/tirtos_tivac_2_16_01_14/products/bios_6_45_02_31/packages/ti/sysbios/gates/package/package.defs.h
+empty_min.obj: C:/ti/xdctools_3_32_00_06_core/packages/xdc/runtime/Assert.h
+empty_min.obj: C:/ti/xdctools_3_32_00_06_core/packages/xdc/runtime/IGateProvider.h
+empty_min.obj: C:/ti/tirtos_tivac_2_16_01_14/products/bios_6_45_02_31/packages/ti/sysbios/knl/Task.h
+empty_min.obj: C:/ti/tirtos_tivac_2_16_01_14/products/bios_6_45_02_31/packages/ti/sysbios/knl/Semaphore.h
+empty_min.obj: C:/ti/tirtos_tivac_2_16_01_14/products/tidrivers_tivac_2_16_01_13/packages/ti/drivers/gpio/GPIOTiva.h
 
 ../empty_min.c:
 
@@ -600,4 +609,22 @@ C:/ti/TivaWare_C_Series-2.2.0.295/driverlib/rom.h:
 C:/ti/TivaWare_C_Series-2.2.0.295/driverlib/rom_map.h:
 
 C:/ti/TivaWare_C_Series-2.2.0.295/driverlib/uart.h:
+
+C:/ti/tirtos_tivac_2_16_01_14/products/bios_6_45_02_31/packages/ti/sysbios/gates/GateMutex.h:
+
+C:/ti/xdctools_3_32_00_06_core/packages/xdc/runtime/Types.h:
+
+C:/ti/xdctools_3_32_00_06_core/packages/xdc/runtime/IInstance.h:
+
+C:/ti/tirtos_tivac_2_16_01_14/products/bios_6_45_02_31/packages/ti/sysbios/gates/package/package.defs.h:
+
+C:/ti/xdctools_3_32_00_06_core/packages/xdc/runtime/Assert.h:
+
+C:/ti/xdctools_3_32_00_06_core/packages/xdc/runtime/IGateProvider.h:
+
+C:/ti/tirtos_tivac_2_16_01_14/products/bios_6_45_02_31/packages/ti/sysbios/knl/Task.h:
+
+C:/ti/tirtos_tivac_2_16_01_14/products/bios_6_45_02_31/packages/ti/sysbios/knl/Semaphore.h:
+
+C:/ti/tirtos_tivac_2_16_01_14/products/tidrivers_tivac_2_16_01_13/packages/ti/drivers/gpio/GPIOTiva.h:
 

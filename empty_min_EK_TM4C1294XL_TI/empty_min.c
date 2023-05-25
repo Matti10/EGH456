@@ -65,9 +65,12 @@
 #include "utils/ustdlib.h"
 #include "driverlib/sysctl.h"
 #include <ti/sysbios/knl/Clock.h>
+#include <ti/sysbios/knl/Mailbox.h>
+#include <ti/sysbios/knl/Event.h>
 #include "driverlib/rom.h"
 #include "driverlib/rom_map.h"
 #include "driverlib/uart.h"
+#include <ti/sysbios/knl/GateMutex.h>
 
 uint32_t g_ui32SysClock;
 
@@ -81,6 +84,8 @@ Task_Struct task1Struct;
 Char task1Stack[TASKSTACKSIZE];
 
 
+// init Mutex
+GateMutex_Handle gateMutexHandle;
 
 //*****************************************************************************
 //
@@ -93,10 +98,21 @@ Char task1Stack[TASKSTACKSIZE];
 #define MOTOR_CURR_MAX //we need to decide what this is
 #define MOTOR_TEMP_MAX //we need to decide what this is
 #define MOTOR_MAX_DUTY 100
+#define HALL_INT_NUM 1
 
-bool *hallStates;
+bool hallStates[3];
+hallStates[0] = 0;
+hallStates[1] = 0;
+hallStates[2] = 0;
+
 double rpm = 0.0;
 uint16_t input_rpm = 500;
+
+bool * motor_getHallState();
+void motor_initHall();
+void motor_GetRPM();
+void motor_Driver();
+void motor_eStop();
 
 //
 // E-Stop Thread / Interupt
@@ -124,22 +140,30 @@ void motor_Driver()
     // Set motor RPM using void setDuty(uint16_t duty);
     // Will likely need to be setup in a closed loop with motor_GetRPM()
     // Will likely need to call motor_accelerate() & motor_decelerate
+    //init buffer
+    uint8_t bufferSize = 10;
+    uint16_t rpmBuffer[bufferSize];
+
+
+
     uint8_t duty = 50;
     enableMotor();
 
     while(1)
     {
-        if (rpm > input_rpm && duty > 0)
-        {
-            duty--;
-        }
-        if (rpm < input_rpm && duty < MOTOR_MAX_DUTY)
-        {
-            duty++;
-        }
+//        if (rpm > input_rpm && duty > 0)
+//        {
+//            duty--;
+//        }
+//        if (rpm < input_rpm && duty < MOTOR_MAX_DUTY)
+//        {
+//            duty++;
+//        }
 
         setDuty(duty);
-        *hallStates = motor_getHallState(); //this should be removed when other thread runs
+        hallStates[0] = GPIOPinRead(GPIO_PORTM_BASE, GPIO_PIN_3);
+        hallStates[1] = GPIOPinRead(GPIO_PORTH_BASE, GPIO_PIN_2);
+        hallStates[2] = GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2);
         updateMotor(hallStates[0],hallStates[1],hallStates[2]); //hall states to be retreived by rpm reader task
 
     }
@@ -155,10 +179,8 @@ void motor_GetRPM()
     //this assumes one hall trigger (per sensor) per revolution
     Uint32 startTime, endTime, i, temp1, temp2, cumSum;
 
+    //MAKE THIS A TIMER THAT PERIODIACLLY CHECKS THE EDGE COUNT!?!?!??!
 
-    //init buffer
-    uint8_t bufferSize = 10;
-    uint16_t buffer[bufferSize];
 
     for (i = 1; i < bufferSize; i++)
     {
@@ -168,12 +190,13 @@ void motor_GetRPM()
 
     while(1)
     {
+        motor_getHallState();
         bool currHallState = hallStates[0];
 
         startTime = Clock_getTicks();
         do
         {
-            *hallStates = motor_getHallState();
+//            hallStates = {GPIOPinRead(GPIO_PORTM_BASE, GPIO_PIN_3), GPIOPinRead(GPIO_PORTH_BASE, GPIO_PIN_2), GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2)};
 
         }
         while (hallStates[0] == currHallState);
@@ -203,17 +226,27 @@ void motor_GetRPM()
     }
 }
 
-bool * motor_getHallState()
+void motor_getHallState()
 {
-    bool states[3] = {GPIOPinRead(GPIO_PORTM_BASE, GPIO_PIN_3), GPIOPinRead(GPIO_PORTH_BASE, GPIO_PIN_2), GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2)};
-    return states;
+    IArg key = GateMutex_enter(gateMutexHandle);
+
+    UARTprintf("Updating Hall's");
+
+    hallStates[0] = GPIOPinRead(GPIO_PORTM_BASE, GPIO_PIN_3);
+    hallStates[1] = GPIOPinRead(GPIO_PORTH_BASE, GPIO_PIN_2);
+    hallStates[2] = GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2);
+
+    GateMutex_leave(gateMutexHandle, key);
 }
 
 void motor_initHall()
 {
+    //set hall pins as inputs
     GPIOPinTypeGPIOInput(GPIO_PORTM_BASE, GPIO_PIN_3);
     GPIOPinTypeGPIOInput(GPIO_PORTH_BASE, GPIO_PIN_2);
     GPIOPinTypeGPIOInput(GPIO_PORTN_BASE, GPIO_PIN_2);
+
+    //set hall pins to interupt	GPIOIntTypeSet(GPIO_PORTM_BASE, GPIO_PIN_3, GPIO_RISING_EDGE);	GPIOIntTypeSet(GPIO_PORTH_BASE, GPIO_PIN_2, GPIO_RISING_EDGE);	GPIOIntTypeSet(GPIO_PORTN_BASE, GPIO_PIN_2, GPIO_RISING_EDGE);
 }
 
 //
@@ -254,7 +287,7 @@ void ConfigureUART(void)
     //
     // Initialize the UART for console I/O.
     //
-    UARTStdioConfig(0, 115200, g_ui32SysClock);
+    UARTStdioConfig(0, 115200, g_ui32SysClock);a
 }
 
 
@@ -278,12 +311,33 @@ int main(void)
     // Board_initUSBMSCHFatFs();
     // Board_initWatchdog();
     // Board_initWiFi();
+    motor_initHall();
 
     g_ui32SysClock = MAP_SysCtlClockFreqSet((SYSCTL_XTAL_25MHZ |
                                                 SYSCTL_OSC_MAIN |
                                                 SYSCTL_USE_PLL |
                                                 SYSCTL_CFG_VCO_480), 120000000);
 
+    //
+    // Init Hwi for Halls
+    //
+    Hwi_Params hwiParams;
+    Hwi_Params_init(&hwiParams);
+    Hwi_create(HALL_INT_NUM,motor_Driver, &hwiParams, NULL) //how do i find the correct int number???
+
+    GPIOIntEnable(GPIO_PORTM_BASE, GPIO_INT_PIN_3)
+    GPIOIntEnable(GPIO_PORTH_BASE, GPIO_INT_PIN_2)
+    GPIOIntEnable(GPIO_PORTN_BASE, GPIO_INT_PIN_2)
+
+    //
+    // Init Mutex
+    //
+    GateMutex_init();
+    gateMutexHandle = GateMutex_create(NULL, NULL);
+
+    if (gateMutexHandle == NULL) {
+        System_abort("Gate Mutex Pri create failed");
+    }
 
     //
     // Initialize the UART.
@@ -291,31 +345,41 @@ int main(void)
     ConfigureUART();
 
     UARTprintf("\033[2J\033[H");
-    UARTprintf("Welcome to the 'car'");
+    UARTprintf("Welcome to the 'car'\n");
     //
     // Init Motor
     //
     Error_Block motorError;
     uint16_t pwm_period = MOTOR_MAX_DUTY;
     initMotorLib(pwm_period, &motorError);
-    motor_initHall();
+
+    if (Error_check(&motorError))
+    {
+        UARTprintf("GET FUCKED, THERE'S BEEN A MOTOR ERROR RETARD\n");
+    }
+
+
 
     /* Construct motorDriver Task  thread */
-    Task_Params_init(&task0Params);
-    task0Params.stackSize = TASKSTACKSIZE;
-    task0Params.stack = &task0Stack;
-    Task_construct(&task0Struct, (Task_FuncPtr)motor_Driver, &task0Params, NULL);
+//    Task_Params_init(&task0Params);
+//    task0Params.stackSize = TASKSTACKSIZE;
+//    task0Params.stack = &task0Stack;
+//    task0Params.priority = 1;
+//    Task_construct(&task0Struct, (Task_FuncPtr)motor_Driver, &task0Params, NULL);
 
     /* Construct RPMr Task  thread */
-    Task_Params_init(&task1Params);
-    task1Params.stackSize = TASKSTACKSIZE;
-    task1Params.stack = &task1Stack;
-    Task_construct(&task1Struct, (Task_FuncPtr)motor_GetRPM, &task1Params, NULL);
+//    Task_Params_init(&task1Params);
+//    task1Params.stackSize = TASKSTACKSIZE;
+//    task1Params.stack = &task1Stack;
+//    task1Params.priority = 1;
+//    Task_construct(&task1Struct, (Task_FuncPtr)motor_GetRPM, &task1Params, NULL);
 
 
 
     /* Turn on user LED  */
     GPIO_write(Board_LED0, Board_LED_ON);
+
+
 
     /* Start BIOS */
     BIOS_start();

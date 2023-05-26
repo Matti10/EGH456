@@ -13,7 +13,8 @@ CMD_SRCS += \
 
 C_SRCS += \
 ../EK_TM4C1294XL.c \
-../empty_min.c 
+../empty_min.c \
+../startup_ccs.c 
 
 GEN_CMDS += \
 ./configPkg/linker.cmd 
@@ -27,25 +28,29 @@ GEN_MISC_DIRS += \
 
 C_DEPS += \
 ./EK_TM4C1294XL.d \
-./empty_min.d 
+./empty_min.d \
+./startup_ccs.d 
 
 GEN_OPTS += \
 ./configPkg/compiler.opt 
 
 OBJS += \
 ./EK_TM4C1294XL.obj \
-./empty_min.obj 
+./empty_min.obj \
+./startup_ccs.obj 
 
 GEN_MISC_DIRS__QUOTED += \
 "configPkg\" 
 
 OBJS__QUOTED += \
 "EK_TM4C1294XL.obj" \
-"empty_min.obj" 
+"empty_min.obj" \
+"startup_ccs.obj" 
 
 C_DEPS__QUOTED += \
 "EK_TM4C1294XL.d" \
-"empty_min.d" 
+"empty_min.d" \
+"startup_ccs.d" 
 
 GEN_FILES__QUOTED += \
 "configPkg\linker.cmd" \
@@ -53,6 +58,7 @@ GEN_FILES__QUOTED += \
 
 C_SRCS__QUOTED += \
 "../EK_TM4C1294XL.c" \
-"../empty_min.c" 
+"../empty_min.c" \
+"../startup_ccs.c" 
 
 

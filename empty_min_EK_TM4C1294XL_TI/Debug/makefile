@@ -12,6 +12,7 @@ GEN_CMDS__FLAG := -l"configPkg/linker.cmd"
 ORDERED_OBJS += \
 "./EK_TM4C1294XL.obj" \
 "./empty_min.obj" \
+"./startup_ccs.obj" \
 "./utils/uartstdio.obj" \
 "./utils/ustdlib.obj" \
 "../EK_TM4C1294XL.cmd" \
@@ -154,8 +155,8 @@ empty_min_EK_TM4C1294XL_TI.out: $(OBJS) $(CMD_SRCS) $(LIB_SRCS) $(GEN_CMDS)
 # Other Targets
 clean:
 	-$(RM) $(GEN_FILES__QUOTED)$(EXE_OUTPUTS__QUOTED)
-	-$(RM) "EK_TM4C1294XL.obj" "empty_min.obj" "utils\uartstdio.obj" "utils\ustdlib.obj" 
-	-$(RM) "EK_TM4C1294XL.d" "empty_min.d" "utils\uartstdio.d" "utils\ustdlib.d" 
+	-$(RM) "EK_TM4C1294XL.obj" "empty_min.obj" "startup_ccs.obj" "utils\uartstdio.obj" "utils\ustdlib.obj" 
+	-$(RM) "EK_TM4C1294XL.d" "empty_min.d" "startup_ccs.d" "utils\uartstdio.d" "utils\ustdlib.d" 
 	-$(RMDIR) $(GEN_MISC_DIRS__QUOTED)
 	-@echo 'Finished clean'
 	-@echo ' '

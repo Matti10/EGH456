@@ -43,6 +43,8 @@
 /* motor */
 #include "./drivers/motorlib.h"
 
+#include "./startup_ccs.c"
+
 /* TI-RTOS Header files */
 // #include <ti/drivers/EMAC.h>
 #include <ti/drivers/GPIO.h>
@@ -94,10 +96,15 @@ Char task1Stack[TASKSTACKSIZE];
 #define MOTOR_TEMP_MAX //we need to decide what this is
 #define MOTOR_MAX_DUTY 100
 
-bool *hallStates;
+bool hallStates[3];
 double rpm = 0.0;
 uint16_t input_rpm = 500;
 
+void motor_getHallState();
+void motor_initHall();
+void motor_GetRPM();
+void motor_Driver();
+void motor_eStop();
 //
 // E-Stop Thread / Interupt
 //
@@ -117,7 +124,7 @@ void motor_eStop()
 //
 // Motor Set RPM - Will likely be called by an interupt from the UI
 //
-void motor_Driver()
+void motor_Driver(void)
 {
     UARTprintf("Starting Motor Driver");
     //This needs to:
@@ -129,17 +136,19 @@ void motor_Driver()
 
     while(1)
     {
-        if (rpm > input_rpm && duty > 0)
-        {
-            duty--;
-        }
-        if (rpm < input_rpm && duty < MOTOR_MAX_DUTY)
-        {
-            duty++;
-        }
+//        if (rpm > input_rpm && duty > 0)
+//        {
+//            duty--;
+//        }
+//        if (rpm < input_rpm && duty < MOTOR_MAX_DUTY)
+//        {
+//            duty++;
+//        }
 
         setDuty(duty);
-        *hallStates = motor_getHallState(); //this should be removed when other thread runs
+        hallStates[0] = GPIOPinRead(GPIO_PORTM_BASE, GPIO_PIN_3);
+        hallStates[1] = GPIOPinRead(GPIO_PORTH_BASE, GPIO_PIN_2);
+        hallStates[2] = GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2);
         updateMotor(hallStates[0],hallStates[1],hallStates[2]); //hall states to be retreived by rpm reader task
 
     }
@@ -150,63 +159,72 @@ void motor_Driver()
 //
 void motor_GetRPM()
 {
-    UARTprintf("Starting RPM Task");
-
-    //this assumes one hall trigger (per sensor) per revolution
-    Uint32 startTime, endTime, i, temp1, temp2, cumSum;
-
-
-    //init buffer
-    uint8_t bufferSize = 10;
-    uint16_t buffer[bufferSize];
-
-    for (i = 1; i < bufferSize; i++)
-    {
-        buffer[i] = 0;
-    }
-
-
-    while(1)
-    {
-        bool currHallState = hallStates[0];
-
-        startTime = Clock_getTicks();
-        do
-        {
-            *hallStates = motor_getHallState();
-
-        }
-        while (hallStates[0] == currHallState);
-
-        endTime = Clock_getTicks();
-
-        //start cumulitave sum to get avg rpm over last 10 samples
-        cumSum = 0;
-
-        temp1 = buffer[0];
-        buffer[0] = ((endTime-startTime)/g_ui32SysClock)*60; //this is meant to convert rev/tick to rpm
-        for (i = 1; i < bufferSize; i++)
-        {
-            //increment cumSum
-            cumSum += temp1;
-
-            //move all items down a place in buffer
-            temp2 = buffer[i];
-            buffer[i] = temp1;
-            temp1 = temp2;
-        }
-
-
-        rpm = (cumSum/bufferSize); //RACE CONDITION add access control later
-
-        UARTprintf("%f",rpm);
-    }
+//    UARTprintf("Starting RPM Task");
+//
+//    //this assumes one hall trigger (per sensor) per revolution
+//    Uint32 startTime, endTime, i, temp1, temp2, cumSum;
+//
+//
+//    //init buffer
+//    uint8_t bufferSize = 10;
+//    uint16_t buffer[bufferSize];
+//
+//    for (i = 1; i < bufferSize; i++)
+//    {
+//        buffer[i] = 0;
+//    }
+//
+//
+//    while(1)
+//    {
+//        bool currHallState = hallStates[0];
+//
+//        startTime = Clock_getTicks();
+//        do
+//        {
+//            *hallStates = motor_getHallState();
+//
+//        }
+//        while (hallStates[0] == currHallState);
+//
+//        endTime = Clock_getTicks();
+//
+//        //start cumulitave sum to get avg rpm over last 10 samples
+//        cumSum = 0;
+//
+//        temp1 = buffer[0];
+//        buffer[0] = ((endTime-startTime)/g_ui32SysClock)*60; //this is meant to convert rev/tick to rpm
+//        for (i = 1; i < bufferSize; i++)
+//        {
+//            //increment cumSum
+//            cumSum += temp1;
+//
+//            //move all items down a place in buffer
+//            temp2 = buffer[i];
+//            buffer[i] = temp1;
+//            temp1 = temp2;
+//        }
+//
+//
+//        rpm = (cumSum/bufferSize); //RACE CONDITION add access control later
+//
+//        UARTprintf("%f",rpm);
+//    }
 }
 
-bool * motor_getHallState()
+void motor_getHallState()
 {
-    bool states[3] = {GPIOPinRead(GPIO_PORTM_BASE, GPIO_PIN_3), GPIOPinRead(GPIO_PORTH_BASE, GPIO_PIN_2), GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2)};
-    return states;
+//    bool states[3] = {GPIOPinRead(GPIO_PORTM_BASE, GPIO_PIN_3), GPIOPinRead(GPIO_PORTH_BASE, GPIO_PIN_2), GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2)};
+//    return states;
+//    IArg key = GateMutex_enter(gateMutexHandle);
+//
+//    UARTprintf("Updating Hall's");
+//
+//    hallStates[0] = GPIOPinRead(GPIO_PORTM_BASE, GPIO_PIN_3);
+//    hallStates[1] = GPIOPinRead(GPIO_PORTH_BASE, GPIO_PIN_2);
+//    hallStates[2] = GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2);
+//
+//    GateMutex_leave(gateMutexHandle, key);
 }
 
 void motor_initHall()

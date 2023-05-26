@@ -151,6 +151,9 @@ empty_min.obj: C:/ti/tirtos_tivac_2_16_01_14/products/bios_6_45_02_31/packages/t
 empty_min.obj: ../drivers/motorlib.h
 empty_min.obj: C:/ti/xdctools_3_32_00_06_core/packages/xdc/runtime/Error.h
 empty_min.obj: C:/ti/ccs1230/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stdbool.h
+empty_min.obj: ../startup_ccs.c
+empty_min.obj: C:/ti/TivaWare_C_Series-2.2.0.295/inc/hw_nvic.h
+empty_min.obj: C:/ti/TivaWare_C_Series-2.2.0.295/inc/hw_types.h
 empty_min.obj: C:/ti/tirtos_tivac_2_16_01_14/products/tidrivers_tivac_2_16_01_13/packages/ti/drivers/GPIO.h
 empty_min.obj: C:/ti/TivaWare_C_Series-2.2.0.295/driverlib/gpio.h
 empty_min.obj: C:/ti/tirtos_tivac_2_16_01_14/products/tidrivers_tivac_2_16_01_13/packages/ti/drivers/UART.h
@@ -471,6 +474,12 @@ C:/ti/tirtos_tivac_2_16_01_14/products/bios_6_45_02_31/packages/ti/sysbios/knl/p
 C:/ti/xdctools_3_32_00_06_core/packages/xdc/runtime/Error.h:
 
 C:/ti/ccs1230/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include/stdbool.h:
+
+../startup_ccs.c:
+
+C:/ti/TivaWare_C_Series-2.2.0.295/inc/hw_nvic.h:
+
+C:/ti/TivaWare_C_Series-2.2.0.295/inc/hw_types.h:
 
 C:/ti/tirtos_tivac_2_16_01_14/products/tidrivers_tivac_2_16_01_13/packages/ti/drivers/GPIO.h:
 

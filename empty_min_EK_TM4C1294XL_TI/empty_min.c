@@ -35,6 +35,7 @@
  */
 /* XDCtools Header files */
 #include <xdc/std.h>
+#include <xdc/runtime/system.h>
 
 /* BIOS Header files */
 #include <ti/sysbios/BIOS.h>
@@ -47,7 +48,7 @@
 // #include <ti/drivers/EMAC.h>
 #include <ti/drivers/GPIO.h>
 #include <driverlib/gpio.h>
-// #include <ti/drivers/I2C.h>
+#include <ti/drivers/I2C.h>
 // #include <ti/drivers/SDSPI.h>
 // #include <ti/drivers/SPI.h>
 // #include <ti/drivers/UART.h>
@@ -65,10 +66,69 @@
 #include "driverlib/sysctl.h"
 
 #define TASKSTACKSIZE   1024
+
+/* Slave address */
+#define OPT3001_I2C_ADDRESS             0x47
+
+/* Register addresses */
+#define REG_RESULT                      0x00
+#define REG_CONFIGURATION               0x01
+
 uint32_t g_ui32SysClock;
 
 Task_Struct task0Struct;
 Char task0Stack[TASKSTACKSIZE];
+
+// I2C
+I2C_Handle i2c;
+I2C_Params i2cParams;
+I2C_Transaction i2cTransaction;
+
+uint8_t txBuffer[3];
+uint8_t rxBuffer[2];
+
+//*****************************************************************************
+//
+// I2C Sensors - light sensor
+//
+//*****************************************************************************
+bool writeI2C(uint8_t ui8Addr, uint8_t ui8Reg, uint8_t* data) {
+
+    // swap bits?
+    txBuffer[0] = ui8Addr;
+    txBuffer[1] = data[0];
+    txBuffer[2] = data[1];
+
+    i2cTransaction.slaveAddress = ui8Addr;
+    i2cTransaction.writeBuf = txBuffer;
+    i2cTransaction.writeCount = 3;
+    i2cTransaction.readBuf = rxBuffer;
+    i2cTransaction.readCount = 0;
+
+    return I2C_Transfer(i2c, &i2cTransaction);
+}
+
+bool readI2C(uint8_t ui8Addr, uint8_t ui8Reg, uint8_t* data) {
+    txBuffer[0] = ui8Reg;
+
+    i2cTransaction.slaveAddress = ui8Addr;
+    i2cTransaction.writeBuf = txBuffer;
+    i2cTransaction.writeCount = 1;
+    i2cTransaction.readBuf = rxBuffer;
+    i2cTransaction.readCount = 2;
+    i2cTransaction.arg = 1;
+
+    bool status = I2C_transfer(i2c, &i2cTransaction);
+}
+
+void sensorOpt3001ReadConvertedLux(float convertedLux){
+    // This function converts the data read from the optical sensor into a lux value
+
+    uint16_t val;
+    uint16_t rawData;
+
+    readI2C(OPT3001_I2C_ADDRESS, REG_RESULT, (uint8_t *)&val);
+}
 
 /*
  *  ======== heartBeatFxn ========
@@ -77,10 +137,15 @@ Char task0Stack[TASKSTACKSIZE];
  */
 Void heartBeatFxn(UArg arg0, UArg arg1)
 {
-    uint16_t rpm = 100;
+    //uint16_t rpm = 100;
 //    enableMotor();
 //    setDuty(25);
-    motor_SetRPM(rpm);
+    //motor_SetRPM(rpm);
+    System_printf("heart beat\n");
+    float convertedLux = 0;
+    sensorOpt3001ReadConvertedLux(convertedLux);
+//    System_printf(convertedLux);
+
 }
 
 //*****************************************************************************
@@ -194,6 +259,7 @@ ConfigureUART(void)
 }
 
 
+
 /*
  *  ======== main ========
  */
@@ -205,7 +271,7 @@ int main(void)
     Board_initGeneral();
     // Board_initEMAC();
     Board_initGPIO();
-    // Board_initI2C();
+    Board_initI2C();
     // Board_initSDSPI();
     // Board_initSPI();
     Board_initUART();
@@ -223,6 +289,20 @@ int main(void)
 //    UART_config();
 //
 //    Uartprintf("test");
+
+    // I2C stuff - not sure if it should be moved
+
+
+    /* create and open i2c port*/
+    I2C_Params_init(&i2cParams);
+    i2cParams.bitRate = I2C_400kHz;
+    i2c = I2C_open(Board_I2C_OPT3001, &i2cParams);
+
+    if (i2c == NULL) {
+        System_abort("Error initializing I2C\n");
+    } else {
+        System_printf("I2C Initialized!\n");
+    }
 
     //
     // Init Motor

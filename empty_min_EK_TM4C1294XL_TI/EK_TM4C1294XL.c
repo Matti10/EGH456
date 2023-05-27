@@ -353,6 +353,11 @@ const I2CTiva_HWAttrs i2cTivaHWAttrs[EK_TM4C1294XL_I2CCOUNT] = {
         .baseAddr = I2C8_BASE,
         .intNum = INT_I2C8,
         .intPriority = (~0)
+    },
+    {
+        .baseAddr = I2C0_BASE,
+        .intNum = INT_I2C0,
+        .intPriority = (~0)
     }
 };
 
@@ -367,7 +372,12 @@ const I2C_Config I2C_config[] = {
         .object = &i2cTivaObjects[1],
         .hwAttrs = &i2cTivaHWAttrs[1]
     },
-    {NULL, NULL, NULL}
+    {
+        .fxnTablePtr = &I2CTiva_fxnTable,
+        .object = &i2cTivaObjects[2],
+        .hwAttrs = &i2cTivaHWAttrs[2]
+    },
+    {NULL, NULL}
 };
 
 /*
@@ -400,6 +410,16 @@ void EK_TM4C1294XL_initI2C(void)
     GPIOPinConfigure(GPIO_PA3_I2C8SDA);
     GPIOPinTypeI2CSCL(GPIO_PORTA_BASE, GPIO_PIN_2);
     GPIOPinTypeI2C(GPIO_PORTA_BASE, GPIO_PIN_3);
+
+    /* I2C0 Init */
+    /* Enable The peripheral */
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_I2C0);
+
+    /* Configure the appropriate pins to be I2C instead of GPIO. */
+    GPIOPinConfigure(GPIO_PB2_I2C0SCL);
+    GPIOPinConfigure(GPIO_PB3_I2C0SDA);
+    GPIOPinTypeI2CSCL(GPIO_PORTB_BASE, GPIO_PIN_2);
+    GPIOPinTypeI2C(GPIO_PORTB_BASE, GPIO_PIN_3);
 
     I2C_init();
 }

@@ -1503,7 +1503,7 @@ __FAR__ const xdc_SizeT ti_sysbios_knl_Task_Module_State_terminatedQ__O = offset
  *  Define absolute path prefix for this executable's
  *  configuration generated files.
  */
-xdc__META(__ASM__, "@(#)__ASM__ = C:/Users/dylan/OneDrive - Queensland University of Technology/H-Migrated/EGH456_2023/empty_min_EK_TM4C1294XL_TI/Debug/configPkg/package/cfg/empty_min_pem4f");
+xdc__META(__ASM__, "@(#)__ASM__ = C:/Users/Dylan/EGH456/EGH456/empty_min_EK_TM4C1294XL_TI/Debug/configPkg/package/cfg/empty_min_pem4f");
 
 /*
  *  ======== __ISA__ ========

@@ -9,13 +9,13 @@
  */
 
 
--l"C:\Users\dylan\OneDrive - Queensland University of Technology\H-Migrated\EGH456_2023\empty_min_EK_TM4C1294XL_TI\Debug\configPkg\package\cfg\empty_min_pem4f.oem4f"
+-l"C:\Users\Dylan\EGH456\EGH456\empty_min_EK_TM4C1294XL_TI\Debug\configPkg\package\cfg\empty_min_pem4f.oem4f"
 -l"C:/ti/tirtos_tivac_2_16_01_14/products/tidrivers_tivac_2_16_01_13/packages/ti/mw/wifi/cc3x00/lib/cc3x00_host_driver.aem4f"
 -l"C:/ti/tirtos_tivac_2_16_01_14/products/tidrivers_tivac_2_16_01_13/packages/ti/drivers/lib/drivers_tivaware.aem4f"
 -l"C:/ti/tirtos_tivac_2_16_01_14/products/tidrivers_tivac_2_16_01_13/packages/ti/drivers/lib/drivers_wifi_tivaware.aem4f"
 -l"C:\ti\tirtos_tivac_2_16_01_14\products\tidrivers_tivac_2_16_01_13\packages\ti\mw\fatfs\lib\release\ti.mw.fatfs.aem4f"
 -l"C:/ti/tirtos_tivac_2_16_01_14/products/tidrivers_tivac_2_16_01_13/packages/ti/drivers/ports/lib/tirtosport.aem4f"
--l"C:\Users\dylan\OneDrive - Queensland University of Technology\H-Migrated\EGH456_2023\empty_min_EK_TM4C1294XL_TI\src\sysbios\sysbios.aem4f"
+-l"C:\Users\Dylan\EGH456\EGH456\empty_min_EK_TM4C1294XL_TI\src\sysbios\sysbios.aem4f"
 -l"C:\ti\tirtos_tivac_2_16_01_14\products\bios_6_45_02_31\packages\ti\catalog\arm\cortexm4\tiva\ce\lib\Boot.aem4f"
 -l"C:\ti\tirtos_tivac_2_16_01_14\products\bios_6_45_02_31\packages\ti\targets\arm\rtsarm\lib\ti.targets.arm.rtsarm.aem4f"
 -l"C:\ti\tirtos_tivac_2_16_01_14\products\bios_6_45_02_31\packages\ti\targets\arm\rtsarm\lib\boot.aem4f"
@@ -78,8 +78,6 @@
 
 /* Content from xdc.runtime.knl (null): */
 
-/* Content from xdc.services.io (null): */
-
 /* Content from ti.catalog.arm.peripherals.timers (null): */
 
 /* Content from ti.catalog.arm.cortexm4 (null): */
@@ -130,6 +128,8 @@ ti_sysbios_family_arm_m3_Hwi_nvic = 0xe000e000;
 /* Content from ti.sysbios.utils (null): */
 
 /* Content from configPkg (null): */
+
+/* Content from xdc.services.io (null): */
 
 
 

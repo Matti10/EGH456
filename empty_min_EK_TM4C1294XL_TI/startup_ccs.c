@@ -43,7 +43,6 @@ static void IntDefaultHandler(void);
 //
 //*****************************************************************************
 extern void _c_int00(void);
-extern void motor_Driver(void);
 
 //*****************************************************************************
 //
@@ -57,9 +56,8 @@ extern uint32_t __STACK_TOP;
 // External declarations for the interrupt handlers used by the application.
 //
 //*****************************************************************************
-extern void IntGPIOa(void);
-extern void IntGPIOb(void);
-extern void IntGPIOc(void);
+
+extern void motor_driver(void);
 
 //*****************************************************************************
 //
@@ -88,9 +86,9 @@ void (* const g_pfnVectors[])(void) =
     0,                                      // Reserved
     IntDefaultHandler,                      // The PendSV handler
     IntDefaultHandler,                      // The SysTick handler
-    IntGPIOa,                               // GPIO Port A
-    IntGPIOb,                               // GPIO Port B
-    IntGPIOc,                               // GPIO Port C
+    IntDefaultHandler,                               // GPIO Port A
+    IntDefaultHandler,                               // GPIO Port B
+    IntDefaultHandler,                               // GPIO Port C
     IntDefaultHandler,                      // GPIO Port D
     IntDefaultHandler,                      // GPIO Port E
     IntDefaultHandler,                      // UART0 Rx and Tx
@@ -120,7 +118,7 @@ void (* const g_pfnVectors[])(void) =
     IntDefaultHandler,                      // FLASH Control
     IntDefaultHandler,                      // GPIO Port F
     IntDefaultHandler,                      // GPIO Port G
-    motor_Driver,                      // GPIO Port H
+    motor_driver,                      // GPIO Port H
     IntDefaultHandler,                      // UART2 Rx and Tx
     IntDefaultHandler,                      // SSI1 Rx and Tx
     IntDefaultHandler,                      // Timer 3 subtimer A
@@ -160,8 +158,8 @@ void (* const g_pfnVectors[])(void) =
     0,                                      // Reserved
     IntDefaultHandler,                      // I2C4 Master and Slave
     IntDefaultHandler,                      // I2C5 Master and Slave
-    motor_Driver,                      // GPIO Port M
-    motor_Driver,                      // GPIO Port N
+    motor_driver,                      // GPIO Port M
+    motor_driver,                      // GPIO Port N
     0,                                      // Reserved
     IntDefaultHandler,                      // Tamper
     IntDefaultHandler,                      // GPIO Port P (Summary or P0)

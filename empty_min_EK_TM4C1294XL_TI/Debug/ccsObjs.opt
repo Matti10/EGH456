@@ -1,5 +1,6 @@
 "./EK_TM4C1294XL.obj"
-"./empty_min.obj"
+"./interrupts.obj"
+"./startup_ccs.obj"
 "./utils/uartstdio.obj"
 "./utils/ustdlib.obj"
 "../EK_TM4C1294XL.cmd"

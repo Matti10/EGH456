@@ -43,7 +43,7 @@
 /* motor */
 #include "./drivers/motorlib.h"
 
-#include "./startup_ccs.c"
+//#include "./startup_ccs.c"
 
 /* TI-RTOS Header files */
 // #include <ti/drivers/EMAC.h>
@@ -60,7 +60,7 @@
 /* Board Header file */
 #include "Board.h"
 
-
+#include "inc/hw_ints.h"
 #include <inc/hw_memmap.h>
 #include "driverlib/pin_map.h"
 #include "utils/uartstdio.h"
@@ -70,8 +70,42 @@
 #include "driverlib/rom.h"
 #include "driverlib/rom_map.h"
 #include "driverlib/uart.h"
+#include "inc/hw_nvic.h"
+#include "inc/hw_types.h"
+
+
+
+//*****************************************************************************
+//
+// startup_ccs.c - Startup code for use with TI's Code Composer Studio.
+//
+// Copyright (c) 2013-2020 Texas Instruments Incorporated.  All rights reserved.
+// Software License Agreement
+//
+// Texas Instruments (TI) is supplying this software for use solely and
+// exclusively on TI's microcontroller products. The software is owned by
+// TI and/or its suppliers, and is protected under applicable copyright
+// laws. You may not combine this software with "viral" open-source
+// software in order to form a larger program.
+//
+// THIS SOFTWARE IS PROVIDED "AS IS" AND WITH ALL FAULTS.
+// NO WARRANTIES, WHETHER EXPRESS, IMPLIED OR STATUTORY, INCLUDING, BUT
+// NOT LIMITED TO, IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE APPLY TO THIS SOFTWARE. TI SHALL NOT, UNDER ANY
+// CIRCUMSTANCES, BE LIABLE FOR SPECIAL, INCIDENTAL, OR CONSEQUENTIAL
+// DAMAGES, FOR ANY REASON WHATSOEVER.
+//
+// This is part of revision 2.2.0.295 of the EK-TM4C1294XL Firmware Package.
+//
+//*****************************************************************************
+
+#include <stdint.h>
+#include "inc/hw_nvic.h"
+#include "inc/hw_types.h"
+
 
 uint32_t g_ui32SysClock;
+
 
 // Setup Tasks
 #define TASKSTACKSIZE   1024
@@ -90,11 +124,7 @@ Char task1Stack[TASKSTACKSIZE];
 //
 //*****************************************************************************
 
-#define MOTOR_ACCELERATION_RPMs 750 //Note that this is measured in RPM per Second
-#define MOTOR_ESTOP_RPMs 1000 //Note that this is measured in RPM per Second
-#define MOTOR_CURR_MAX //we need to decide what this is
-#define MOTOR_TEMP_MAX //we need to decide what this is
-#define MOTOR_MAX_DUTY 100
+
 
 bool hallStates[3];
 double rpm = 0.0;
@@ -124,9 +154,9 @@ void motor_eStop()
 //
 // Motor Set RPM - Will likely be called by an interupt from the UI
 //
-void motor_Driver(void)
+void motor_Driver_task(void)
 {
-    UARTprintf("Starting Motor Driver");
+    UARTprintf("Starting Motor Driver Task");
     //This needs to:
     // Set motor RPM using void setDuty(uint16_t duty);
     // Will likely need to be setup in a closed loop with motor_GetRPM()
@@ -154,12 +184,42 @@ void motor_Driver(void)
     }
 }
 
+void motor_Driver(void)
+{
+    GPIOIntClear(GPIO_PORTM_BASE, GPIO_INT_PIN_3);
+    UARTprintf("Starting Motor Driver");
+//    //This needs to:
+//    // Set motor RPM using void setDuty(uint16_t duty);
+//    // Will likely need to be setup in a closed loop with motor_GetRPM()
+//    // Will likely need to call motor_accelerate() & motor_decelerate
+        uint8_t duty = 50;
+        enableMotor();
+//
+////        if (rpm > input_rpm && duty > 0)
+////        {
+////            duty--;
+////        }
+////        if (rpm < input_rpm && duty < MOTOR_MAX_DUTY)
+////        {
+////            duty++;
+////        }
+//
+        setDuty(duty);
+        hallStates[0] = GPIOPinRead(GPIO_PORTM_BASE, GPIO_PIN_3);
+        hallStates[1] = GPIOPinRead(GPIO_PORTH_BASE, GPIO_PIN_2);
+        hallStates[2] = GPIOPinRead(GPIO_PORTN_BASE, GPIO_PIN_2);
+        updateMotor(hallStates[0],hallStates[1],hallStates[2]); //hall states to be retreived by rpm reader task
+
+}
+
+void (*testFuncPtr)(void);
+
 //
 // Motor Get RPM
 //
 void motor_GetRPM()
 {
-//    UARTprintf("Starting RPM Task");
+    UARTprintf("Starting RPM Task");
 //
 //    //this assumes one hall trigger (per sensor) per revolution
 //    Uint32 startTime, endTime, i, temp1, temp2, cumSum;
@@ -229,19 +289,55 @@ void motor_getHallState()
 
 void motor_initHall()
 {
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOM);
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOH);
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPION);
+
     GPIOPinTypeGPIOInput(GPIO_PORTM_BASE, GPIO_PIN_3);
-//    GPIOPadConfigSet(GPIO_PORTM_BASE, GPIO_PIN_3, GPIO_STRENGTH_2MA,GPIO_PIN_TYPE_STD_WPU);
-    GPIOIntTypeSet(GPIO_PORTM_BASE, GPIO_PIN_3, GPIO_RISING_EDGE);
+    GPIOPadConfigSet(GPIO_PORTM_BASE, GPIO_PIN_3, GPIO_STRENGTH_2MA,GPIO_PIN_TYPE_STD_WPU);
 
-    GPIOPinTypeGPIOInput(GPIO_PORTH_BASE, GPIO_PIN_2);
-//    GPIOPadConfigSet(GPIO_PORTH_BASE, GPIO_PIN_2, GPIO_STRENGTH_2MA,GPIO_PIN_TYPE_STD_WPU);
+
+    GPIODirModeSet(GPIO_PORTH_BASE, GPIO_PIN_2, GPIO_DIR_MODE_IN);
+    GPIOPadConfigSet(GPIO_PORTH_BASE, GPIO_PIN_2, GPIO_STRENGTH_2MA,GPIO_PIN_TYPE_STD_WPU);
     GPIOIntTypeSet(GPIO_PORTH_BASE, GPIO_PIN_2, GPIO_RISING_EDGE);
+    IntPrioritySet(INT_GPIOH, 0x40);
 
-    GPIOPinTypeGPIOInput(GPIO_PORTN_BASE, GPIO_PIN_2);
-//    GPIOPadConfigSet(GPIO_PORTN_BASE, GPIO_PIN_2, GPIO_STRENGTH_2MA, GPIO_PIN_TYPE_STD_WPU);
+    GPIODirModeSet(GPIO_PORTN_BASE, GPIO_PIN_2, GPIO_DIR_MODE_IN); // if shit doesnt work, try swaping with GPIODirModeSet(GPIO_PORTX_BASE, GPIO_PIN_Y, GPIO_DIR_MODE_IN);
+    GPIOPadConfigSet(GPIO_PORTN_BASE, GPIO_PIN_2, GPIO_STRENGTH_2MA, GPIO_PIN_TYPE_STD_WPU);
     GPIOIntTypeSet(GPIO_PORTN_BASE, GPIO_PIN_2, GPIO_RISING_EDGE);
+    IntPrioritySet(INT_GPION, 0x00);
 
     //set hall pins to interupt
+}
+
+
+void testFunc(void)
+{
+    GPIOIntClear(GPIO_PORTM_BASE, GPIO_INT_PIN_3);
+    UARTprintf("testFunc");
+}
+
+void motor_initInterupts()
+{
+        // Enable interrupts for button1 and button2 pins
+//        GPIOIntEnable(GPIO_PORTM_BASE, GPIO_INT_PIN_3);
+//        GPIOIntEnable(GPIO_PORTH_BASE, GPIO_INT_PIN_2);
+//        GPIOIntEnable(GPIO_PORTN_BASE, GPIO_INT_PIN_2);
+//        GPIOIntTypeSet(GPIO_PORTM_BASE, GPIO_PIN_3, GPIO_RISING_EDGE);
+//        IntPrioritySet(INT_GPIO/M, 0x80);
+
+
+        // Register the interrupt handler
+//        testFuncPtr = testFunc;
+//        GPIOIntRegister(GPIO_PORTM_BASE,testFuncPtr);
+//        GPIOIntRegister(GPIO_PORTH_BASE, motor_Driver);
+//        GPIOIntRegister(GPIO_PORTN_BASE, motor_Driver);
+
+//        IntEnable(INT_GPIOM);
+//        IntEnable(INT_GPIOH);
+//        IntEnable(INT_GPION);
+
+//        IntMasterEnable();
 }
 
 //
@@ -286,6 +382,9 @@ void ConfigureUART(void)
 }
 
 
+
+
+
 /*
  *  ======== main ========
  */
@@ -307,6 +406,10 @@ int main(void)
     // Board_initWatchdog();
     // Board_initWiFi();
 
+    motor_initHall();
+//    motor_initInterupts();
+
+
     g_ui32SysClock = MAP_SysCtlClockFreqSet((SYSCTL_XTAL_25MHZ |
                                                 SYSCTL_OSC_MAIN |
                                                 SYSCTL_USE_PLL |
@@ -319,34 +422,39 @@ int main(void)
     ConfigureUART();
 
     UARTprintf("\033[2J\033[H");
-    UARTprintf("Welcome to the 'car'");
+    UARTprintf("\nWelcome to the 'car'\n");
     //
     // Init Motor
     //
     Error_Block motorError;
     uint16_t pwm_period = MOTOR_MAX_DUTY;
     initMotorLib(pwm_period, &motorError);
-    motor_initHall();
+    enableMotor();
+    setDuty(50);
 
-    /* Construct motorDriver Task  thread */
-    Task_Params_init(&task0Params);
-    task0Params.stackSize = TASKSTACKSIZE;
-    task0Params.stack = &task0Stack;
-    Task_construct(&task0Struct, (Task_FuncPtr)motor_Driver, &task0Params, NULL);
+
+
+//    /* Construct motorDriver Task  thread */
+//    Task_Params_init(&task0Params);
+//    task0Params.stackSize = TASKSTACKSIZE;
+//    task0Params.stack = &task0Stack;
+//    Task_construct(&task0Struct, (Task_FuncPtr)motor_Driver_task, &task0Params, NULL);
 
     /* Construct RPMr Task  thread */
-    Task_Params_init(&task1Params);
-    task1Params.stackSize = TASKSTACKSIZE;
-    task1Params.stack = &task1Stack;
-    Task_construct(&task1Struct, (Task_FuncPtr)motor_GetRPM, &task1Params, NULL);
-
+//    Task_Params_init(&task1Params);
+//    task1Params.stackSize = TASKSTACKSIZE;
+//    task1Params.stack = &task1Stack;
+//    Task_construct(&task1Struct, (Task_FuncPtr)motor_GetRPM, &task1Params, NULL);
 
 
     /* Turn on user LED  */
     GPIO_write(Board_LED0, Board_LED_ON);
 
     /* Start BIOS */
-    BIOS_start();
+//    BIOS_start();
+    while(1){}
+
+
 
     return (0);
 }

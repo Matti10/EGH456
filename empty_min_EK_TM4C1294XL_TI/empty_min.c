@@ -76,13 +76,16 @@
 #include <ti/sysbios/family/arm/m3/Hwi.h>
 #include <ti/sysbios/knl/Mailbox.h>
 #include <ti/sysbios/knl/Event.h>
+#include <ti/sysbios/knl/Semaphore.h>
+#include <ti/sysbios/gates/GateMutexPri.h>
 #include <stdint.h>
 #include "inc/hw_nvic.h"
 #include "inc/hw_types.h"
+#include <xdc/runtime/System.h>
 
 #define NUMMSGS         1       /* Number of messages */
-#define TIMEOUT         12      /* Timeout value */
-Mailbox_Params mbxParams;
+#define TIMEOUT         5      /* Timeout value */
+Mailbox_Params rpm_mbxParams;
 
 uint32_t g_ui32SysClock;
 
@@ -96,7 +99,30 @@ Char task0Stack[TASKSTACKSIZE];
 Task_Struct task1Struct;
 Char task1Stack[TASKSTACKSIZE];
 
+Task_Struct task2Struct;
+Char task2Stack[TASKSTACKSIZE];
 
+// setup mutex
+//GateMutexPri_Struct rpmMutex_Struct;
+//GateMutexPri_Handle rpmMutex_Handle;
+#define RPM_SEM_TIMEOUT 10
+Semaphore_Struct rpmSemStruct;
+Semaphore_Handle rpmSemHandle;
+
+Semaphore_Struct input_rpm_SemStruct;
+Semaphore_Handle input_rpm_SemHandle;
+
+Event_Handle evtHandle;
+Mailbox_Params rpm_mbxParams;
+Mailbox_Struct rpm_mbxStruct;
+Mailbox_Handle rpm_mbxHandle;
+#define NUMMSGS         1
+typedef struct rpm_MsgObj {
+    Int         rpm;
+} rpm_MsgObj, *Msg;
+rpm_MsgObj rpm_msg;
+
+//helper func to compare arr elements
 bool arrComp(bool arr1[], bool arr2[], int len)
 {
    int ii;
@@ -110,15 +136,15 @@ bool arrComp(bool arr1[], bool arr2[], int len)
 
 
 
+
+
+
+
 //*****************************************************************************
 //
 // Motor Control
 //
 //*****************************************************************************
-
-
-
-
 #define MOTOR_ACCELERATION_RPMs 750 //Note that this is measured in RPM per Second
 #define MOTOR_ESTOP_RPMs 1000 //Note that this is measured in RPM per Second
 #define MOTOR_CURR_MAX //we need to decide what this is
@@ -141,20 +167,19 @@ bool arrComp(bool arr1[], bool arr2[], int len)
 #define MOTOR_HALL_C_INT INT_GPION
 #define MOTOR_HALL_C_PERIPH SYSCTL_PERIPH_GPION
 
-
 #define MOTOR_RPM_TIMER_PERIPH SYSCTL_PERIPH_TIMER3
 #define MOTOR_RPM_TIMER_BASE TIMER3_BASE
 #define MOTOR_RPM_TIMER TIMER_A
 #define MOTOR_RPM_TIMER_INT INT_TIMER3A
 #define MOTOR_RPM_TIMER_TIMEOUT TIMER_TIMA_TIMEOUT
-#define MOTOR_RPM_REVperRETURN 5
-#define MOTOR_RPM_EDGEperREV 9
+#define MOTOR_RPM_REVperRETURN 1
+#define MOTOR_RPM_EDGEperREV 24 //24 per revolution
 
 
 //int motor_edgeCount = 0;
 //bool motor_hallStates[3];
 double motor_rpm = 0.0;
-uint16_t motor_input_rpm = 500;
+//uint16_t motor_input_rpm = 500;
 int motor_rpm_freq;
 
 
@@ -165,6 +190,9 @@ void motor_GetRPM();
 void motor_Driver();
 void motor_Driver_task();
 void motor_eStop();
+void motor_initSampleInputs();
+void motor_sampleInputs();
+void motor_sendRPM(int rpm);
 //
 // E-Stop Thread / Interupt
 //
@@ -178,7 +206,8 @@ void motor_eStop()
     //
     // If any of those are true, it needs to call void stopMotor(bool brakeType);
 
-
+    motor_sendRPM(0);
+    stopMotor(1);
 }
 
 //
@@ -193,7 +222,7 @@ void motor_Driver_task(void)
     bool motor_hallStates[3];
     int i;
     int motor_edgeCount = 0;
-
+    int time1, time2;
     //init motor
     motor_hallStates[0] = GPIOPinRead(MOTOR_HALL_A_PORT, MOTOR_HALL_A_PIN);
     motor_hallStates[1] = GPIOPinRead(MOTOR_HALL_B_PORT, MOTOR_HALL_B_PIN);
@@ -209,13 +238,14 @@ void motor_Driver_task(void)
             motor_hallStates[0] = GPIOPinRead(MOTOR_HALL_A_PORT, MOTOR_HALL_A_PIN);
             motor_hallStates[1] = GPIOPinRead(MOTOR_HALL_B_PORT, MOTOR_HALL_B_PIN);
             motor_hallStates[2] = GPIOPinRead(MOTOR_HALL_C_PORT, MOTOR_HALL_C_PIN);
+//            Task_sleep(10);
         } while (arrComp(motor_hallStates,oldStates,3));
 
         updateMotor(motor_hallStates[0],motor_hallStates[1],motor_hallStates[2]); //hall states to be retreived by rpm reader task
 
         motor_edgeCount++; //nine positions per rotation
 
-        if (motor_edgeCount >= (MOTOR_RPM_REVperRETURN * MOTOR_RPM_EDGEperREV)) {
+        if ((double)motor_edgeCount >= (MOTOR_RPM_REVperRETURN * MOTOR_RPM_EDGEperREV)) {
             return;
         }
 
@@ -229,10 +259,11 @@ void motor_Driver_task(void)
 //
 void motor_GetRPM(void)
 {
+    Task_sleep(10);
+    UARTprintf("Motor RPM Started\n");
     int time1, time2;
-    double debugRPM, revTime;
-
-    double tickPeriod = 1.0/(double)g_ui32SysClock;
+    double debugRPM, debug_motor_rpm;
+    double tickPerMin = 8901.729;
 
     while(1){
         time1 = Clock_getTicks();
@@ -241,15 +272,75 @@ void motor_GetRPM(void)
 
         time2 = Clock_getTicks();
 
-        revTime = ((time2-time1)*tickPeriod)/MOTOR_RPM_REVperRETURN;
+        if(Semaphore_pend(rpmSemHandle, RPM_SEM_TIMEOUT))
+        {
+            motor_rpm = tickPerMin/((time2-time1)/MOTOR_RPM_REVperRETURN);
+            Semaphore_post(rpmSemHandle);
+        }
 
-        //mutex
-        motor_rpm = 60.0/revTime;
-        debugRPM = motor_rpm;
-        UARTprintf("%d rpm\n",motor_rpm);
+        debugRPM = tickPerMin/((time2-time1)/MOTOR_RPM_REVperRETURN);
+        debug_motor_rpm = motor_rpm;
 
+
+
+        Task_sleep(10);
     }
 }
+
+void motor_control(void)
+{
+    Task_sleep(10);
+    UARTprintf("Motor Control Started\n");
+    int duty = 50;
+    double int_motor_rpm;
+    double motor_input_rpm = 500;
+    rpm_MsgObj rpm_msg;
+
+    while(1){
+
+        if(Mailbox_pend(rpm_mbxHandle, &rpm_msg, BIOS_NO_WAIT)){
+            motor_input_rpm = (double)rpm_msg.rpm;
+        }
+
+        if (motor_input_rpm == 0)
+        {
+            disableMotor();
+        }
+
+
+        Semaphore_pend(rpmSemHandle, BIOS_WAIT_FOREVER);
+        int_motor_rpm = motor_rpm;
+        Semaphore_post(rpmSemHandle);
+
+        UARTprintf("desired rpm:%d actual rpm: %d",(int)motor_input_rpm,(int)int_motor_rpm);
+
+        if (motor_input_rpm > 0)
+        {
+            enableMotor();
+        }
+
+        if (int_motor_rpm > (double)motor_input_rpm && duty > 0)
+        {
+            duty--;
+            UARTprintf("   - Reducing Duty(%d)\n",duty);
+        }
+        else if (int_motor_rpm < (double)motor_input_rpm && duty < MOTOR_MAX_DUTY)
+        {
+            duty++;
+            UARTprintf("   - Increasing Duty(%d)\n",duty);
+        }
+        else
+        {
+            UARTprintf("    - Duty @ %d\n",duty);
+        }
+
+        setDuty(duty);
+
+        Task_sleep(10);
+    }
+
+}
+
 
 
 
@@ -278,10 +369,10 @@ void motor_initRPM(void) {
 }
 
 
-void motor_init(void)
-{
+void motor_init(void){
     motor_initHall();
     motor_initRPM();
+    motor_initSampleInputs();
 
     Error_Block motorError;
     initMotorLib(MOTOR_MAX_DUTY, &motorError);
@@ -289,16 +380,20 @@ void motor_init(void)
     setDuty(50);
 }
 
-
-
-//
-// Accelerate the Motor
-//
-void motor_accelerate(bool direction)
-{
-    // Accelerate the motor at MOTOR_ACCELERATION_RPMs
-    //  use the direction to establish if its acceleration or deceleration?
+void motor_sendRPM(int rpm){
+    if(rpm_msg.rpm != rpm)
+    {
+        rpm_msg.rpm = rpm;
+        Mailbox_post(rpm_mbxHandle, &rpm_msg, 500);
+    }
 }
+
+void motor_initSampleInputs()
+{
+    GPIO_setConfig(Board_BUTTON0,GPIO_CFG_IN_PD);
+    GPIO_setConfig(Board_BUTTON1,GPIO_CFG_IN_PD);
+}
+
 
 
 
@@ -334,7 +429,7 @@ void ConfigureUART(void)
 
 
 
-Hwi_Handle myHwi;
+
 
 /*
  *  ======== main ========
@@ -343,10 +438,11 @@ int main(void)
 {
     Task_Params task0Params;
     Task_Params task1Params;
+    GateMutexPri_Params rpmMutex_Params;
+    Semaphore_Params rpmSemParams;
 
-
-    FPUEnable();
-    FPULazyStackingEnable();
+//    FPUEnable();
+//    FPULazyStackingEnable();
 
 
 
@@ -366,11 +462,10 @@ int main(void)
     motor_init();
 //    motor_initInterupts();
 
-    g_ui32SysClock = MAP_SysCtlClockFreqSet((SYSCTL_XTAL_12MHZ |
-                                                SYSCTL_OSC_MAIN |
-                                                SYSCTL_USE_PLL |
-                                                SYSCTL_CFG_VCO_240), 12000000);
-
+    g_ui32SysClock = SysCtlClockFreqSet((SYSCTL_XTAL_25MHZ |
+                                         SYSCTL_OSC_MAIN |
+                                         SYSCTL_USE_PLL |
+                                         SYSCTL_CFG_VCO_240), 120000000);
     motor_rpm_freq = g_ui32SysClock/10;
     //
     // Initialize the UART.
@@ -380,28 +475,56 @@ int main(void)
     UARTprintf("\033[2J\033[H");
     UARTprintf("\nWelcome to the 'car'\n");
 
+    /*
+     * Construct Gate Mutex for accessing motor speed
+     */
+//    GateMutexPri_Params_init(&rpmMutex_Params);
+//    GateMutexPri_construct(&rpmMutex_Struct, &rpmMutex_Params);
+//    rpmMutex_Handle = GateMutexPri_handle(&rpmMutex_Struct);
+//
+    Semaphore_Params_init(&rpmSemParams);
+    Semaphore_construct(&rpmSemStruct, 1, &rpmSemParams);
+    rpmSemHandle = Semaphore_handle(&rpmSemStruct);
+
+//    Semaphore_Params_init(&intput_rpm_SemParams);
+//    Semaphore_construct(&input_rpm_SemStruct, 1, &input_rpm_SemParams);
+//    rpmSemHandle = Semaphore_handle(&intput_rpm_SemStruct);
+//
+
     /* Construct a Mailbox Instance */
-//    Mailbox_Params_init(&mbxParams);
-//    mbxParams.readerEvent = evtHandle;
-//    mbxParams.readerEventId = Event_Id_02;
-//    Mailbox_construct(&mbxStruct,sizeof(MsgObj), 2, &mbxParams, NULL);
-//    mbxHandle = Mailbox_handle(&mbxStruct);
-
-    /* Construct motorDriver Task  thread */
-//    Task_Params_init(&task0Params);
-//    task0Params.stackSize = TASKSTACKSIZE;
-//    task0Params.stack = &task0Stack;
-//    Task_construct(&task0Struct, (Task_FuncPtr)motor_Driver_task, &task0Params, NULL);
-
+    Mailbox_Params_init(&rpm_mbxParams);
+    Mailbox_construct(&rpm_mbxStruct,sizeof(rpm_MsgObj), 1, &rpm_mbxParams, NULL);
+    rpm_mbxHandle = Mailbox_handle(&rpm_mbxStruct);
+//
+//    GateMutexPri_Struct rpmMutex_Struct;
+//    GateMutexPri_Handle rpmMutex_Handle;
     /* Construct RPMr Task  thread */
     Task_Params_init(&task1Params);
     task1Params.stackSize = TASKSTACKSIZE;
     task1Params.stack = &task1Stack;
+    task1Params.priority = 1;
     Task_construct(&task1Struct, (Task_FuncPtr)motor_GetRPM, &task1Params, NULL);
 
+    /* Construct motor control Task  thread */
+    Task_Params_init(&task0Params);
+    task0Params.stackSize = TASKSTACKSIZE;
+    task0Params.stack = &task0Stack;
+    task0Params.priority = 2;
+    Task_construct(&task0Struct, (Task_FuncPtr)motor_control, &task0Params, NULL);
 
-    /* Turn on user LED  */
-    GPIO_write(Board_LED0, Board_LED_ON);
+    /* Construct motor test input  thread */
+//    task0Params.stackSize = TASKSTACKSIZE;
+//    task0Params.stack = &task2Stack;
+//    task0Params.priority = 1;
+//    Task_construct(&task2Struct, (Task_FuncPtr)motor_sampleInputs, &task0Params, NULL);
+
+//    Clock_Params clkParams;
+//    Clock_Params_init(&clkParams);
+//    clkParams.period =
+//    Clock_Handle clock = Clock_create( (Clock_FuncPtr)motor_control, 60, const Clock_Params *params, Error_Block *eb );
+//
+
+
 
     /* Start BIOS */
     BIOS_start();
@@ -413,8 +536,8 @@ int main(void)
 }
 
 
-void motor_initInterupts()
-{
+//void motor_initInterupts()
+//{
         // Enable interrupts for button1 and button2 pins
 //        GPIOIntEnable(MOTOR_HALL_A_PORT, GPIO_INT_PIN_3);
 //        GPIOIntEnable(MOTOR_HALL_B_PORT, GPIO_INT_PIN_2);
@@ -434,4 +557,79 @@ void motor_initInterupts()
 //        IntEnable(INT_GPION);
 
 //        IntMasterEnable();
-}
+//}
+//void motor_sampleInputs(){
+//
+//    int rpm = 50;
+//
+//    bool btn0, btn1;
+//    bool mode = 1;
+//    while(1){
+//        btn0 =0;
+//        btn1 =0;
+//        btn0 =  GPIO_read(Board_BUTTON0);
+//        btn1 =  GPIO_read(Board_BUTTON1);
+//
+//        if (btn0 && btn1)
+//        {
+//            //rpm swap mode over
+//            mode = !mode;
+//            GPIO_read(Board_LED0);
+//            GPIO_write(Board_LED0, mode);
+//            GPIO_write(Board_LED1, !mode);
+//            if(mode)
+//            {
+//                UARTprintf("stop/start mode\n");
+//            }
+//            else
+//            {
+//                UARTprintf("rpm adj mode\n");
+//            }
+//            Task_sleep(1000);
+//            btn0 =  GPIO_read(Board_BUTTON0);
+//            btn1 =  GPIO_read(Board_BUTTON1);
+//        }
+//
+//        if (btn0 || btn1){
+//
+//        switch(mode){
+//            case 0:
+//                btn0 =  GPIO_read(Board_BUTTON0);
+//                btn1 =  GPIO_read(Board_BUTTON1);
+//                //rpm changes
+//                if (btn1){
+//                    rpm +=1500;
+//                    UARTprintf("+1500 rpm\n");
+//                }
+//                if(btn0){
+//                    rpm += 250;
+//                    UARTprintf("+250 rpm\n");
+//                }
+//
+//                motor_sendRPM(rpm);
+//                Task_sleep(1000);
+//
+//            case 1:
+//                //estop /start
+//                btn0 =  GPIO_read(Board_BUTTON0);
+//                btn1 =  GPIO_read(Board_BUTTON1);
+//                if (btn1){
+//                    motor_eStop();
+//                    rpm = 0;
+//                    Task_sleep(100);
+//                    UARTprintf("ETOP INIT\n");
+//                }
+//                if(btn0){
+//                    UARTprintf("Motor renabled\n");
+//                    disableMotor();
+//                    Task_sleep(100);
+//                    enableMotor();
+//                }
+//        }
+//        }
+//        Task_sleep(250);
+//    }
+//
+//
+//}
+

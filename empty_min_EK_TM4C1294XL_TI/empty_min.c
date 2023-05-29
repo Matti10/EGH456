@@ -56,6 +56,8 @@
 // #include <ti/drivers/Watchdog.h>
 // #include <ti/drivers/WiFi.h>
 
+#include <math.h>
+
 /* Board Header file */
 #include "Board.h"
 
@@ -65,14 +67,32 @@
 #include "utils/uartstdio.h"
 #include "driverlib/sysctl.h"
 
+/* Sensor Header Files */
+#include "./drivers/OPT3001.h"
+#include "./drivers/BMI160.h"
+
 #define TASKSTACKSIZE   1024
 
 /* Slave address */
 #define OPT3001_I2C_ADDRESS             0x47
+#define BMI160_I2C_ADDRESS              0x69
 
-/* Register addresses */
+/* OPT3001 Register addresses */
 #define REG_RESULT                      0x00
 #define REG_CONFIGURATION               0x01
+
+/* BMI160 Accelerometer data registers*/
+#define BMI160_X                        0x12
+#define BMI160_Y                        0x14
+#define BMI160_Z                        0x16
+
+/* BMI160 CONFIG REGISTERS */
+#define ACC_CMD                         0x7E
+#define ACC_CONF                        0x40
+#define ACC_RANGE                       0x41
+#define ACC_INT_OUT_CTRL                0x53
+#define ACC_INT_LATCH                   0x54
+#define ACC_INT_MAP                     0x55
 
 uint32_t g_ui32SysClock;
 
@@ -82,53 +102,6 @@ Char task0Stack[TASKSTACKSIZE];
 // I2C
 I2C_Handle i2c;
 I2C_Params i2cParams;
-I2C_Transaction i2cTransaction;
-
-uint8_t txBuffer[3];
-uint8_t rxBuffer[2];
-
-//*****************************************************************************
-//
-// I2C Sensors - light sensor
-//
-//*****************************************************************************
-bool writeI2C(uint8_t ui8Addr, uint8_t ui8Reg, uint8_t* data) {
-
-    // swap bits?
-    txBuffer[0] = ui8Addr;
-    txBuffer[1] = data[0];
-    txBuffer[2] = data[1];
-
-    i2cTransaction.slaveAddress = ui8Addr;
-    i2cTransaction.writeBuf = txBuffer;
-    i2cTransaction.writeCount = 3;
-    i2cTransaction.readBuf = rxBuffer;
-    i2cTransaction.readCount = 0;
-
-    return I2C_Transfer(i2c, &i2cTransaction);
-}
-
-bool readI2C(uint8_t ui8Addr, uint8_t ui8Reg, uint8_t* data) {
-    txBuffer[0] = ui8Reg;
-
-    i2cTransaction.slaveAddress = ui8Addr;
-    i2cTransaction.writeBuf = txBuffer;
-    i2cTransaction.writeCount = 1;
-    i2cTransaction.readBuf = rxBuffer;
-    i2cTransaction.readCount = 2;
-    i2cTransaction.arg = 1;
-
-    bool status = I2C_transfer(i2c, &i2cTransaction);
-}
-
-void sensorOpt3001ReadConvertedLux(float convertedLux){
-    // This function converts the data read from the optical sensor into a lux value
-
-    uint16_t val;
-    uint16_t rawData;
-
-    readI2C(OPT3001_I2C_ADDRESS, REG_RESULT, (uint8_t *)&val);
-}
 
 /*
  *  ======== heartBeatFxn ========
@@ -142,9 +115,21 @@ Void heartBeatFxn(UArg arg0, UArg arg1)
 //    setDuty(25);
     //motor_SetRPM(rpm);
     System_printf("heart beat\n");
-    float convertedLux = 0;
-    sensorOpt3001ReadConvertedLux(convertedLux);
-//    System_printf(convertedLux);
+
+
+    initBMI160(i2c);
+    initOPT3001(i2c);
+
+    uint8_t convertedLux = 0;
+    uint8_t *acceleration;
+    while(1) {
+
+        convertedLux = readLuxOPT3001(i2c);
+        acceleration = readAccelerationBMI160(i2c);
+        System_printf("Lux: %d; Raw Acc x: %d y: %d z: %d\n", convertedLux, acceleration[0], acceleration[1], acceleration[2]);
+        System_flush();
+    }
+
 
 }
 
@@ -296,12 +281,14 @@ int main(void)
     /* create and open i2c port*/
     I2C_Params_init(&i2cParams);
     i2cParams.bitRate = I2C_400kHz;
+
     i2c = I2C_open(Board_I2C_OPT3001, &i2cParams);
 
     if (i2c == NULL) {
         System_abort("Error initializing I2C\n");
     } else {
         System_printf("I2C Initialized!\n");
+        System_flush();
     }
 
     //
@@ -310,6 +297,8 @@ int main(void)
     Error_Block motorError;
     uint16_t pwm_period = 100;//getMotorPWMPeriod();
     initMotorLib(pwm_period, &motorError);
+
+
 
     /* Construct heartBeat Task  thread */
     Task_Params_init(&taskParams);

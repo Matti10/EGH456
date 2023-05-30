@@ -220,9 +220,11 @@ Void heartBeatFxn(UArg arg0, UArg arg1)
 
     uint8_t convertedLux = 0;
     uint8_t *acceleration;
+    uint8_t prevLux = 100;
     while (1) {
 //        Task_sleep((unsigned int)arg0);
 //        GPIO_toggle(Board_LED0);
+        prevLux = convertedLux;
         convertedLux = readLuxOPT3001(i2c);
 //        acceleration = readBMI160(i2c);
 
@@ -238,6 +240,15 @@ Void heartBeatFxn(UArg arg0, UArg arg1)
 //        readI2CBMI160(i2c, BMI160_Z);
 //        z = (int16_t) (rxBufferAcc[1]<<8) + rxBufferAcc[0];
 //        System_printf("Lux: %d; Raw Acc x: %d y: %d z: %d\n", convertedLux, x, y, z);
+
+        // turn on LED if lux is less than 5;
+        if (convertedLux <= 5 && prevLux >= 5) {
+            GPIO_write(Board_LED0, Board_LED_ON);
+        }
+
+        if (convertedLux > 5 && prevLux <= 5) {
+            GPIO_write(Board_LED0, Board_LED_OFF);
+        }
         System_printf("Lux: %d\n", convertedLux);
         System_flush();
 

@@ -45,6 +45,8 @@
 #include <ti/sysbios/family/arm/m3/Hwi.h>
 #include <ti/sysbios/family/arm/m3/Timer.h>
 #include <ti/sysbios/knl/Clock.h>
+#include <ti/sysbios/gates/GateHwi.h>
+#include <ti/sysbios/knl/Mailbox.h>
 
 /* TI-RTOS Header files */
 // #include <ti/drivers/EMAC.h>
@@ -78,15 +80,18 @@
 #include "./drivers/motorLib/motorlib.h"
 
 /* Task Setup */
-#define TASKSTACKSIZE   512
+#define TASKSTACKSIZE   1024
 
 Task_Struct task0Struct;
 Char task0Stack[TASKSTACKSIZE];
+Task_Struct taskMotorTester_Struct;
+Char taskMotorTester_Stack[TASKSTACKSIZE];
 
 /* I2C Setup */
 I2C_Handle i2c;
 I2C_Params i2cParams;
 
+uint32_t ui32SysClock;
 
 /*
  *  ======== heartBeatFxn ========
@@ -123,8 +128,6 @@ Void heartBeatFxn(UArg arg0, UArg arg1)
 #define MOTOR_TEMP_MAX //we need to decide what this is
 #define MOTOR_MAX_DUTY 100
 
-
-
 #define MOTOR_HALL_A_PIN GPIO_PIN_3
 #define MOTOR_HALL_A_PORT GPIO_PORTM_BASE
 #define MOTOR_HALL_A_INT GPIO_INT_PIN_3
@@ -140,28 +143,56 @@ Void heartBeatFxn(UArg arg0, UArg arg1)
 #define MOTOR_HALL_C_INT GPIO_INT_PIN_2
 #define MOTOR_HALL_C_ISR INT_GPION_TM4C129
 
-//#define MOTOR_RPM_TIMER_PERIPH SYSCTL_PERIPH_TIMER3
-//#define MOTOR_RPM_TIMER_BASE TIMER3_BASE
-//#define MOTOR_RPM_TIMER TIMER_A
-//#define MOTOR_RPM_TIMER_INT INT_TIMER3A
-//#define MOTOR_RPM_TIMER_TIMEOUT TIMER_TIMA_TIMEOUT
+#define MOTOR_RPM_CLOCK_PERIOD 10 //1000 micro secs per tick
+
+#define MOTOR_RPM_CLOCK_PERIODS_PER_MIN 60//000
+
+#define MOTOR_POLES 24
+
+#define NUMMSGS         1
+
 
 /* Motor Funcs */
 void motor_init(void);
-void motor_driver(UArg arg0);
+void motor_driver();
 void motor_initISR();
 void motor_start();
 void motor_initHall(void);
 void motor_initRPM();
 void motor_controller();
 void motor_initRPM();
+void motor_controller();
 
+typedef struct rpm_MsgObj {
+    Int         rpm;
+} rpm_MsgObj, *Msg;
+
+typedef struct motor_data_MsgObj {
+    Int         rpm;
+    Int         duty;
+} motor_data_MsgObj, *data_Msg;
 
 /* Motor Globals */
 bool motor_hallStates[3];
 int motor_edgeCount = 0;
+rpm_MsgObj rpm_msg;
+motor_data_MsgObj motor_info_msg;
+
+/* ONLY USED IN MOTOR CONTORL ISR!!!! */
+int motor_rpmEdgeCount_1 = 0;
+int motor_rpmEdgeCount_2 = 0;
+int motor_rpm = 0;
+int motor_input_rpm = 300;
+int duty = 50;
+
+
 Hwi_Handle motor_Hwi_A, motor_Hwi_B, motor_Hwi_C;
-Timer_Handle motor_rpm_Timer;
+Clock_Handle motor_rpm_Timer;
+GateHwi_Handle motor_GateHwi;
+Mailbox_Handle rpm_mbxHandle;
+Mailbox_Handle motor_info_mbxHandle;
+
+
 
 void motor_initHall(void)
 {
@@ -182,7 +213,7 @@ void motor_initHall(void)
 
 void motor_start(){
     enableMotor();
-    setDuty(50);
+    setDuty(duty);
 
 //    motor_hallStates[0] = GPIOPinRead(MOTOR_HALL_A_PORT, MOTOR_HALL_A_PIN);
 //    motor_hallStates[1] = GPIOPinRead(MOTOR_HALL_B_PORT, MOTOR_HALL_B_PIN);
@@ -190,10 +221,41 @@ void motor_start(){
 //    updateMotor(motor_hallStates[0],motor_hallStates[1],motor_hallStates[2]);
 }
 
+
+void motor_manageISRStates(UArg isr){
+    /* Do Rising Edge Int's job for it */
+    if(isr == MOTOR_HALL_A_ISR){
+        Hwi_disableInterrupt(MOTOR_HALL_A_ISR);
+        Hwi_enableInterrupt(MOTOR_HALL_B_ISR);
+    }
+    if(isr == MOTOR_HALL_B_ISR){
+        Hwi_disableInterrupt(MOTOR_HALL_B_ISR);
+        Hwi_enableInterrupt(MOTOR_HALL_C_ISR);
+    }
+    if(isr == MOTOR_HALL_C_ISR){
+        Hwi_disableInterrupt(MOTOR_HALL_C_ISR);
+        Hwi_enableInterrupt(MOTOR_HALL_A_ISR);
+    }
+
+    motor_driver();
+}
+
 void motor_clearISR(){
     Hwi_clearInterrupt(MOTOR_HALL_A_ISR);
     Hwi_clearInterrupt(MOTOR_HALL_B_ISR);
     Hwi_clearInterrupt(MOTOR_HALL_C_ISR);
+}
+
+void motor_disableISR(){
+    Hwi_disableInterrupt(MOTOR_HALL_A_ISR);
+    Hwi_disableInterrupt(MOTOR_HALL_B_ISR);
+    Hwi_disableInterrupt(MOTOR_HALL_C_ISR);
+}
+
+void motor_enableISR(){
+    Hwi_enableInterrupt(MOTOR_HALL_A_ISR);
+    Hwi_enableInterrupt(MOTOR_HALL_B_ISR);
+    Hwi_enableInterrupt(MOTOR_HALL_C_ISR);
 }
 
 void motor_initISR(){
@@ -203,56 +265,176 @@ void motor_initISR(){
 
     Hwi_Params_init(&motor_HwiParams);
     motor_HwiParams.maskSetting = Hwi_MaskingOption_SELF;
+    motor_HwiParams.priority = 250;
 
-    motor_Hwi_A = Hwi_create(MOTOR_HALL_A_ISR,(Hwi_FuncPtr)motor_driver,&motor_HwiParams,&motor_HwiError);
-    errorCheck(&motor_HwiError);
-    motor_Hwi_B = Hwi_create(MOTOR_HALL_B_ISR,(Hwi_FuncPtr)motor_driver,&motor_HwiParams,&motor_HwiError);
-    errorCheck(&motor_HwiError);
-    motor_Hwi_C = Hwi_create(MOTOR_HALL_C_ISR,(Hwi_FuncPtr)motor_driver,&motor_HwiParams,&motor_HwiError);
+    motor_HwiParams.arg = MOTOR_HALL_A_ISR;
+    motor_Hwi_A = Hwi_create(MOTOR_HALL_A_ISR,(Hwi_FuncPtr)motor_manageISRStates,&motor_HwiParams,&motor_HwiError);
     errorCheck(&motor_HwiError);
 
+    motor_HwiParams.arg = MOTOR_HALL_B_ISR;
+    motor_Hwi_B = Hwi_create(MOTOR_HALL_B_ISR,(Hwi_FuncPtr)motor_manageISRStates,&motor_HwiParams,&motor_HwiError);
+    errorCheck(&motor_HwiError);
+
+    motor_HwiParams.arg = MOTOR_HALL_C_ISR;
+    motor_Hwi_C = Hwi_create(MOTOR_HALL_C_ISR,(Hwi_FuncPtr)motor_manageISRStates,&motor_HwiParams,&motor_HwiError);
+    errorCheck(&motor_HwiError);
+
+}
+
+void motor_sendRPM(int rpm){
+    if(rpm_msg.rpm != rpm)
+    {
+        rpm_msg.rpm = rpm;
+        Mailbox_post(rpm_mbxHandle, &rpm_msg, 500);
+    }
+}
+
+
+void motor_initMailbox(){
+
+    // init rpm setter mbx
+    Error_Block rpm_mbxError;
+    Mailbox_Params rpm_mbxParams;
+
+    Mailbox_Struct rpm_mbxStruct;
+    Mailbox_Params_init(&rpm_mbxParams);
+    Mailbox_construct(&rpm_mbxStruct,sizeof(rpm_MsgObj), 1, &rpm_mbxParams, &rpm_mbxError);
+    rpm_mbxHandle = Mailbox_handle(&rpm_mbxStruct);
+    errorCheck(&rpm_mbxError);
+
+    //init motor info getter mbx
+    Mailbox_Struct motor_info_mbxStruct;
+    Mailbox_construct(&rpm_mbxStruct,sizeof(motor_data_MsgObj), 1, &rpm_mbxParams, &rpm_mbxError);
+    motor_info_mbxHandle = Mailbox_handle(&rpm_mbxStruct);
+    errorCheck(&rpm_mbxError);
+}
+
+void motor_initGateHwi(){
+
+    Error_Block motor_GateHwiError;
+    GateHwi_Params motor_GateHwiParams;
+
+    GateHwi_Params_init(&motor_GateHwiParams);
+    motor_GateHwi = GateHwi_create(&motor_GateHwiParams, &motor_GateHwiError);
+
+    errorCheck(&motor_GateHwiError);
 }
 
 void motor_initRPM(){
-#define MOTOR_RPM_TIMER_PERIPH SYSCTL_PERIPH_TIMER3
-#define MOTOR_RPM_TIMER_BASE TIMER3_BASE
-#define MOTOR_RPM_TIMER TIMER_A
-#define MOTOR_RPM_TIMER_INT INT_TIMER3A
-#define MOTOR_RPM_TIMER_TIMEOUT TIMER_TIMA_TIMEOUT
 
-    SysCtlPeripheralEnable(MOTOR_RPM_TIMER_PERIPH);
 
-    Error_Block rpm_TimerError;
-    Timer_Params rpm_TimerParams;
+    Error_Block rpm_ClockError;
+    Clock_Params rpm_ClockParams;
 
-    Timer_Params_init(&rpm_TimerParams);
-    rpm_TimerParams.period = 10000; //0.01s
+    Clock_Params_init(&rpm_ClockParams);
+    rpm_ClockParams.period = MOTOR_RPM_CLOCK_PERIOD;
+    rpm_ClockParams.startFlag = TRUE;
+    motor_rpm_Timer= Clock_create((Clock_FuncPtr)motor_controller, MOTOR_RPM_CLOCK_PERIOD, &rpm_ClockParams, &rpm_ClockError);
 
-    motor_rpm_Timer = Timer_create(1,(Timer_FuncPtr)motor_controller,&rpm_TimerParams, &rpm_TimerError);
-    errorCheck(&rpm_TimerError);
+
+    errorCheck(&rpm_ClockError);
+
 }
 
-void motor_controller(){
-    int j = 0;
-}
 
-void motor_driver(UArg arg0)
+void motor_driver()
 {
-    motor_clearISR();
+//    motor_clearISR();
 
     motor_hallStates[0] = GPIOPinRead(MOTOR_HALL_A_PORT, MOTOR_HALL_A_PIN);
     motor_hallStates[1] = GPIOPinRead(MOTOR_HALL_B_PORT, MOTOR_HALL_B_PIN);
     motor_hallStates[2] = GPIOPinRead(MOTOR_HALL_C_PORT, MOTOR_HALL_C_PIN);
     updateMotor(motor_hallStates[0],motor_hallStates[1],motor_hallStates[2]);
 
+
+    IArg key = GateHwi_enter(motor_GateHwi);
     motor_edgeCount++;
+    GateHwi_leave(motor_GateHwi,key);
+}
+
+void motor_controller(){
+
+    //set old edge count
+    motor_rpmEdgeCount_1 = motor_rpmEdgeCount_2;
+
+    //get current edge count from counter
+    IArg key = GateHwi_enter(motor_GateHwi);
+    motor_rpmEdgeCount_2 = motor_edgeCount;
+    GateHwi_leave(motor_GateHwi,key);
+    int debugRPM = motor_rpm;
+    motor_rpm = (int)(((((double)motor_rpmEdgeCount_2-(double)motor_rpmEdgeCount_1))/(double)MOTOR_POLES)*(double)MOTOR_RPM_CLOCK_PERIODS_PER_MIN);
+
+//    if(Mailbox_pend(rpm_mbxHandle, &rpm_msg, BIOS_NO_WAIT)){
+//        motor_input_rpm = rpm_msg.rpm;
+//    }
+
+    if (motor_input_rpm == 0)
+    {
+        disableMotor();
+    }
+    if (motor_input_rpm > 0 && motor_rpm < 10)
+    {
+        enableMotor();
+    }
+    if (motor_rpm > (double)motor_input_rpm && duty > 0)
+    {
+        duty--;
+    }
+    else if (motor_rpm < (double)motor_input_rpm && duty < MOTOR_MAX_DUTY)
+    {
+        duty++;
+    }
+
+}
+
+void motor_tester(){
+    System_printf("Starting Motor Tester!\n");
+    System_flush();
+
+//    Task_sleep(100000);
+
+    int currDuty= -1;
+    int currRPM = -1;
+    int inputRPM;
+    int rpms[10] = {10, 1000, 900, 30, 50, 2000, 0, 5, 550, 5000};
+    int i = 0;
+    int j = 0;
+    while(1){
+//        if (j > 1000000000){
+//            inputRPM = rpms[i];
+////            motor_sendRPM(inputRPM);
+//
+////
+////            if(Mailbox_pend(motor_info_mbxHandle, &motor_info_msg, BIOS_WAIT_FOREVER)){
+////                currDuty = motor_info_msg.duty;
+////                currRPM = motor_info_msg.rpm;
+////            }
+//
+//
+//
+//            i++;
+//            if (i >= 9)
+//            {
+//                i = 0;
+//            }
+//        }
+//        j++;
+
+        System_printf("Input RPM: %d | Motor RPM: %d | Motor Duty: %d", inputRPM, currRPM, currDuty);
+        System_flush();
+        Task_sleep(1000);
+    }
+
+
 }
 
 void motor_init(void){
     motor_initHall();
-//    motor_initRPM();
     motor_initISR();
-//    motor_initRPM();
+    motor_initRPM();
+    motor_initGateHwi();
+//    motor_initMailbox();
+
     Error_Block motorError;
     bool initSuccess = initMotorLib(MOTOR_MAX_DUTY, &motorError);
     errorCheck(&motorError);
@@ -275,6 +457,10 @@ void errorCheck(Error_Block *eb){
 int main(void)
 {
     Task_Params taskParams;
+
+    ui32SysClock = SysCtlClockFreqSet((SYSCTL_XTAL_25MHZ | SYSCTL_OSC_MAIN | SYSCTL_USE_PLL
+    | SYSCTL_CFG_VCO_480), 120000000);
+
     /* Call board init functions */
     Board_initGeneral();
     // Board_initEMAC();
@@ -287,6 +473,8 @@ int main(void)
     // Board_initUSBMSCHFatFs();
     // Board_initWatchdog();
     // Board_initWiFi();
+
+
     motor_init();
 
     /* create and open i2c port*/
@@ -305,14 +493,17 @@ int main(void)
     taskParams.arg0 = 1000;
     taskParams.stackSize = TASKSTACKSIZE;
     taskParams.stack = &task0Stack;
+    taskParams.priority = 1;
 //    Task_construct(&task0Struct, (Task_FuncPtr)heartBeatFxn, &taskParams, NULL);
 
+    taskParams.stack = &taskMotorTester_Stack;
+    taskParams.priority = 2;
+//    Task_construct(&taskMotorTester_Struct, (Task_FuncPtr) motor_tester, &taskParams, NULL);
 
 
 
 
-    System_printf("Starting the example\nSystem provider is set to SysMin. "
-                  "Halt the target to view any SysMin contents in ROV.\n");
+    System_printf("Starting the 'Car'\n");
     /* SysMin will only print to the console when you call flush or exit */
     System_flush();
 

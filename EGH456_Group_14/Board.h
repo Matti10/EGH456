@@ -65,8 +65,8 @@ extern "C" {
 #define Board_I2C_TMP               EK_TM4C1294XL_I2C7
 #define Board_I2C_NFC               EK_TM4C1294XL_I2C7
 #define Board_I2C_TPL0401           EK_TM4C1294XL_I2C7
-#define Board_I2C_OPT3001           EK_TM4C1294XL_I2C0
-#define Board_I2C_BMI160           EK_TM4C1294XL_I2C0
+#define Board_I2C_OPT3001           EK_TM4C1294XL_I2C1
+#define Board_I2C_BMI160            EK_TM4C1294XL_I2C1
 
 #define Board_PWM0                  EK_TM4C1294XL_PWM0
 #define Board_PWM1                  EK_TM4C1294XL_PWM0

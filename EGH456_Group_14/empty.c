@@ -214,7 +214,8 @@ uint32_t ui32SysClock;
 Void heartBeatFxn(UArg arg0, UArg arg1)
 {
     // init sensors
-    initI2CBMI160();
+//    initI2CBMI160();
+
     initOPT3001(i2c);
 
     uint8_t convertedLux = 0;
@@ -227,17 +228,17 @@ Void heartBeatFxn(UArg arg0, UArg arg1)
 
 //        System_printf("Lux: %d --- Acceleration(x,y,z): %d, %d, %d\n", convertedLux, acceleration[0], acceleration[1], acceleration[2]);
 
-        uint8_t x = 0;
-        uint8_t y = 0;
-        uint8_t z = 0;
-        readI2CBMI160(i2c, BMI160_X);
-        x = (int16_t) (rxBufferAcc[1]<<8) + rxBufferAcc[0];
-        readI2CBMI160(i2c, BMI160_Y);
-        y = (int16_t) (rxBufferAcc[1]<<8) + rxBufferAcc[0];
-        readI2CBMI160(i2c, BMI160_Z);
-        z = (int16_t) (rxBufferAcc[1]<<8) + rxBufferAcc[0];
-        System_printf("Lux: %d; Raw Acc x: %d y: %d z: %d\n", convertedLux, x, y, z);
-//        System_printf("Lux: %d\n", convertedLux);
+//        uint8_t x = 0;
+//        uint8_t y = 0;
+//        uint8_t z = 0;
+//        readI2CBMI160(i2c, BMI160_X);
+//        x = (int16_t) (rxBufferAcc[1]<<8) + rxBufferAcc[0];
+//        readI2CBMI160(i2c, BMI160_Y);
+//        y = (int16_t) (rxBufferAcc[1]<<8) + rxBufferAcc[0];
+//        readI2CBMI160(i2c, BMI160_Z);
+//        z = (int16_t) (rxBufferAcc[1]<<8) + rxBufferAcc[0];
+//        System_printf("Lux: %d; Raw Acc x: %d y: %d z: %d\n", convertedLux, x, y, z);
+        System_printf("Lux: %d\n", convertedLux);
         System_flush();
 
     }
@@ -619,14 +620,11 @@ int main(void)
     taskParams.stackSize = TASKSTACKSIZE;
     taskParams.stack = &task0Stack;
     taskParams.priority = 1;
-//    Task_construct(&task0Struct, (Task_FuncPtr)heartBeatFxn, &taskParams, NULL);
+    Task_construct(&task0Struct, (Task_FuncPtr)heartBeatFxn, &taskParams, NULL);
 
-    taskParams.stack = &taskMotorTester_Stack;
-    taskParams.priority = 2;
+//    taskParams.stack = &taskMotorTester_Stack;
+//    taskParams.priority = 2;
 //    Task_construct(&taskMotorTester_Struct, (Task_FuncPtr) motor_tester, &taskParams, NULL);
-
-
-
 
     System_printf("Starting the 'Car'\n");
     /* SysMin will only print to the console when you call flush or exit */

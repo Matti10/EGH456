@@ -16,11 +16,11 @@ BIOS_INC  = -I"C:/ti/tirtos_tivac_2_16_01_14/products/bios_6_45_02_31/packages/"
 
 TARGET_INC = -I"C:/ti/tirtos_tivac_2_16_01_14/products/bios_6_45_02_31/packages/"
 
-INCS = $(BIOS_INC) $(TARGET_INC)  --include_path="C:/Users/Dylan/EGH456/EGH456/EGH456_Group_14" --include_path="C:/Users/Dylan/EGH456/EGH456/EGH456_Group_14" --include_path="C:/ti/tirtos_tivac_2_16_01_14/products/TivaWare_C_Series-2.1.1.71b" --include_path="C:/ti/tirtos_tivac_2_16_01_14/products/bios_6_45_02_31/packages/ti/sysbios/posix" --include_path="C:/ti/ccs1220/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include" 
+INCS = $(BIOS_INC) $(TARGET_INC)  --include_path="C:/Users/matti/workspace_v12/FinalSub3/EGH456/EGH456_Group_14" --include_path="C:/Users/matti/workspace_v12/FinalSub3/EGH456/EGH456_Group_14" --include_path="C:/ti/tirtos_tivac_2_16_01_14/products/TivaWare_C_Series-2.1.1.71b" --include_path="C:/ti/tirtos_tivac_2_16_01_14/products/bios_6_45_02_31/packages/ti/sysbios/posix" --include_path="C:/ti/ccs1230/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include" 
 
-CC = C:/ti/ccs1220/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/bin/armcl -c $(CCOPTS) -I C:/ti/ccs1220/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include
-ASM = C:/ti/ccs1220/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/bin/armcl -c $(CCOPTS) -I C:/ti/ccs1220/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include
-AR = C:/ti/ccs1220/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/bin/armar rq
+CC = C:/ti/ccs1230/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/bin/armcl -c $(CCOPTS) -I C:/ti/ccs1230/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include
+ASM = C:/ti/ccs1230/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/bin/armcl -c $(CCOPTS) -I C:/ti/ccs1230/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/include
+AR = C:/ti/ccs1230/ccs/tools/compiler/ti-cgt-arm_20.2.7.LTS/bin/armar rq
 
 DEL = C:/ti/xdctools_3_32_00_06_core/packages/../bin/rm -f
 CP = C:/ti/xdctools_3_32_00_06_core/packages/../bin/cp -f
@@ -53,7 +53,7 @@ m3_TaskSupport_asm.obj: family/arm/m3/TaskSupport_asm.sv7M makefile
 	$(ASSEMBLE) --output_file=m3_TaskSupport_asm.obj
 
 
-BIOS.obj: BIOS.c knl/Clock.c knl/Idle.c knl/Intrinsics.c knl/Queue.c knl/Semaphore.c knl/Swi.c knl/Swi_andn.c knl/Task.c hal/Hwi.c hal/Hwi_stack.c hal/Hwi_startup.c family/arm/m3/Hwi.c family/arm/m3/TaskSupport.c gates/GateHwi.c gates/GateMutex.c heaps/HeapMem.c family/arm/lm4/Timer.c makefile
+BIOS.obj: BIOS.c knl/Clock.c knl/Idle.c knl/Intrinsics.c knl/Event.c knl/Mailbox.c knl/Queue.c knl/Semaphore.c knl/Swi.c knl/Swi_andn.c knl/Task.c family/arm/m3/Hwi.c family/arm/m3/TaskSupport.c family/arm/m3/Timer.c hal/Hwi.c hal/Hwi_stack.c hal/Hwi_startup.c gates/GateHwi.c gates/GateMutex.c heaps/HeapMem.c family/arm/lm4/Timer.c makefile
 	@-$(call RM, $@)
 	@echo clem4f $< ...
 	@$(CC) $(BIOS_DEFS) $(XOPTS) $(INCS) \
@@ -61,16 +61,19 @@ BIOS.obj: BIOS.c knl/Clock.c knl/Idle.c knl/Intrinsics.c knl/Queue.c knl/Semapho
 	$(BIOS_ROOT)knl/Clock.c \
 	$(BIOS_ROOT)knl/Idle.c \
 	$(BIOS_ROOT)knl/Intrinsics.c \
+	$(BIOS_ROOT)knl/Event.c \
+	$(BIOS_ROOT)knl/Mailbox.c \
 	$(BIOS_ROOT)knl/Queue.c \
 	$(BIOS_ROOT)knl/Semaphore.c \
 	$(BIOS_ROOT)knl/Swi.c \
 	$(BIOS_ROOT)knl/Swi_andn.c \
 	$(BIOS_ROOT)knl/Task.c \
+	$(BIOS_ROOT)family/arm/m3/Hwi.c \
+	$(BIOS_ROOT)family/arm/m3/TaskSupport.c \
+	$(BIOS_ROOT)family/arm/m3/Timer.c \
 	$(BIOS_ROOT)hal/Hwi.c \
 	$(BIOS_ROOT)hal/Hwi_stack.c \
 	$(BIOS_ROOT)hal/Hwi_startup.c \
-	$(BIOS_ROOT)family/arm/m3/Hwi.c \
-	$(BIOS_ROOT)family/arm/m3/TaskSupport.c \
 	$(BIOS_ROOT)gates/GateHwi.c \
 	$(BIOS_ROOT)gates/GateMutex.c \
 	$(BIOS_ROOT)heaps/HeapMem.c \

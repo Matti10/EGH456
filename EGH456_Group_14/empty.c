@@ -309,7 +309,7 @@ motor_data_MsgObj motor_info_msg;
 int motor_rpmEdgeCount_1 = 0;
 int motor_rpmEdgeCount_2 = 0;
 int motor_rpm = 0;
-int motor_input_rpm = 300;
+int motor_input_rpm = 0;
 int motor_input_rpm_internal;
 int duty = 50;
 
@@ -344,12 +344,11 @@ void motor_initHall(void)
 
 void motor_start(){
     enableMotor();
-    setDuty(duty);
-
-//    motor_hallStates[0] = GPIOPinRead(MOTOR_HALL_A_PORT, MOTOR_HALL_A_PIN);
-//    motor_hallStates[1] = GPIOPinRead(MOTOR_HALL_B_PORT, MOTOR_HALL_B_PIN);
-//    motor_hallStates[2] = GPIOPinRead(MOTOR_HALL_C_PORT, MOTOR_HALL_C_PIN);
-//    updateMotor(motor_hallStates[0],motor_hallStates[1],motor_hallStates[2]);
+    setDuty(30);
+    motor_hallStates[0] = GPIOPinRead(MOTOR_HALL_A_PORT, MOTOR_HALL_A_PIN);
+    motor_hallStates[1] = GPIOPinRead(MOTOR_HALL_B_PORT, MOTOR_HALL_B_PIN);
+    motor_hallStates[2] = GPIOPinRead(MOTOR_HALL_C_PORT, MOTOR_HALL_C_PIN);
+    updateMotor(motor_hallStates[0],motor_hallStates[1],motor_hallStates[2]);
 }
 
 
@@ -480,6 +479,16 @@ void motor_driver()
     GateHwi_leave(motor_GateHwi,key);
 }
 
+void motor_eStop()
+{
+    IArg key = GateHwi_enter(motor_GateHwi);
+    motor_input_rpm = 0;
+    GateHwi_leave(motor_GateHwi,key);
+    stopMotor(1);
+    disableMotor();
+
+}
+
 void motor_controller(){
 
     //set old edge count
@@ -494,10 +503,6 @@ void motor_controller(){
     int debugDuty = duty;
 
     motor_rpm = (int)(((((double)motor_rpmEdgeCount_2-(double)motor_rpmEdgeCount_1))/(double)MOTOR_POLES)*(double)MOTOR_RPM_CLOCK_PERIODS_PER_MIN);
-
-    if(Mailbox_pend(rpm_mbxHandle, &rpm_msg, BIOS_NO_WAIT)){
-        motor_input_rpm_internal = rpm_msg.rpm;
-    }
 
     if (motor_input_rpm_internal == 0)
     {
@@ -525,7 +530,7 @@ void motor_initTester(){
     Error_Block tester_ClockError;
     Clock_Params tester_ClockParams;
 
-    int tester_period = MOTOR_RPM_CLOCK_PERIOD*1000;
+    int tester_period = MOTOR_RPM_CLOCK_PERIOD*500;
     Clock_Params_init(&tester_ClockParams);
     tester_ClockParams.period = tester_period;
     tester_ClockParams.startFlag = TRUE;
@@ -537,31 +542,46 @@ void motor_initTester(){
 
 /* MOtor Tester Vars */
 int currDuty= -1;
-int currRPM = -1;
 int inputRPM = -1;
 int rpms[10] = {10, 1000, 900, 30, 50, 2000, 0, 5, 550, 5000};
 int i = 0;
 void motor_tester(){
-    inputRPM = rpms[i];
-    IArg key = GateHwi_enter(motor_GateHwi);
-    motor_input_rpm = rpms[i];
-    GateHwi_leave(motor_GateHwi,key);
+    if (i < 10){
+        int inputRPM = rpms[i];
+        IArg key = GateHwi_enter(motor_GateHwi);
+        motor_input_rpm = rpms[i];
+        GateHwi_leave(motor_GateHwi,key);
 
+
+    }
+
+    if (i == 10){
+        motor_eStop();
+    }
+
+    if(i == 11){
+       motor_start();
+       i = 0;
+       IArg key = GateHwi_enter(motor_GateHwi);
+       motor_input_rpm = rpms[i];
+       GateHwi_leave(motor_GateHwi,key);
+    }
     i++;
+    GPIO_toggle(Board_LED0);
 }
 
 void motor_info(){
-    while(1){
+//    while(1){
 
-        if(Mailbox_pend(motor_info_mbxHandle, &motor_info_msg, BIOS_NO_WAIT)){
-            currDuty = motor_info_msg.duty;
-            currRPM = motor_info_msg.rpm;
-        }
-
-        System_printf("Input RPM: %d | Motor RPM: %d | Motor Duty: %d\n", inputRPM, currRPM, currDuty);
-        System_flush();
-        Task_sleep(1000);
-    }
+//        if(Mailbox_pend(motor_info_mbxHandle, &motor_info_msg, BIOS_NO_WAIT)){
+//            currDuty = motor_info_msg.duty;
+//            currRPM = motor_info_msg.rpm;
+//        }
+//
+//        System_printf("Input RPM: %d | Motor RPM: %d | Motor Duty: %d\n", inputRPM, currRPM, currDuty);
+//        System_flush();
+//        Task_sleep(1000);
+//    }
 
 
 }

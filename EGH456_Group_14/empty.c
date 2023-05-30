@@ -67,6 +67,120 @@ Char task0Stack[TASKSTACKSIZE];
 I2C_Handle i2c;
 I2C_Params i2cParams;
 
+/* BMI160 Accelerometer data registers*/
+#define BMI160_I2C_ADDRESS              0x69
+#define BMI160_X                        0x12
+#define BMI160_Y                        0x14
+#define BMI160_Z                        0x16
+
+/* BMI160 CONFIG REGISTERS */
+#define ACC_CMD                         0x7E
+#define ACC_CONF                        0x40
+#define ACC_RANGE                       0x41
+#define ACC_INT_OUT_CTRL                0x53
+#define ACC_INT_LATCH                   0x54
+#define ACC_INT_MAP                     0x55
+
+uint8_t txBufferAcc[2];
+uint8_t rxBufferAcc[2];
+
+void initI2CBMI160() {
+    // reusable i2c transaction
+    I2C_Transaction transaction;
+
+    // set power mode to normal
+    txBufferAcc[0] = ACC_CMD;
+    txBufferAcc[1] = 0x11; // set data output rate to 1600Hz;
+    transaction.slaveAddress = BMI160_I2C_ADDRESS;
+    transaction.writeCount = 2;
+    transaction.writeBuf = txBufferAcc;
+    transaction.readCount = 0;
+    transaction.readBuf = NULL;
+    bool success = I2C_transfer(i2c, &transaction);
+    if (!success) {
+        System_printf("Failed to set power mode of accelerometer\n");
+    } else {
+        System_printf("Successfully set power mode of accelerometer to normal\n");
+    }
+
+    // --- configure
+    txBufferAcc[0] = ACC_CONF;
+    txBufferAcc[1] = 0b00101100; // set data output rate to 1600Hz;
+    transaction.slaveAddress = BMI160_I2C_ADDRESS;
+    transaction.writeCount = 2;
+    transaction.writeBuf = txBufferAcc;
+    transaction.readCount = 0;
+    transaction.readBuf = NULL;
+    success = I2C_transfer(i2c, &transaction);
+    if (!success) {
+        System_printf("Failed to configure accelerometer\n");
+    } else {
+        System_printf("Successfully configured accelerometer ODR to 1600Hz\n");
+    }
+
+    // --- configure chip interrupts
+    txBufferAcc[0] = ACC_INT_OUT_CTRL;
+    txBufferAcc[1] = 0b1001;
+    transaction.slaveAddress = BMI160_I2C_ADDRESS;
+    transaction.writeCount = 2;
+    transaction.writeBuf = txBufferAcc;
+    transaction.readCount = 0;
+    transaction.readBuf = NULL;
+    success = I2C_transfer(i2c, &transaction);
+    if (!success) {
+        System_printf("Failed to configure accelerometer interrupt\n");
+    } else {
+        System_printf("Successfully configured accelerometer interrupt\n");
+    }
+
+    // INT1 latched
+    txBufferAcc[0] = ACC_INT_LATCH;
+    txBufferAcc[1] = 0b00011111;
+    transaction.slaveAddress = BMI160_I2C_ADDRESS;
+    transaction.writeCount = 2;
+    transaction.writeBuf = txBufferAcc;
+    transaction.readCount = 0;
+    transaction.readBuf = NULL;
+    success = I2C_transfer(i2c, &transaction);
+    if (!success) {
+        System_printf("Failed to configure accelerometer interrupt (1)\n");
+    } else {
+        System_printf("Successfully configured accelerometer INT1 to be latched\n");
+    }
+
+    // INT1 mapped to any motion
+    txBufferAcc[0] = ACC_INT_MAP;
+    txBufferAcc[1] = 0b0100;
+    transaction.slaveAddress = BMI160_I2C_ADDRESS;
+    transaction.writeCount = 2;
+    transaction.writeBuf = txBufferAcc;
+    transaction.readCount = 0;
+    transaction.readBuf = NULL;
+    success = I2C_transfer(i2c, &transaction);
+    if (!success) {
+        System_printf("Failed to map accelerometer INT1\n");
+    } else {
+        System_printf("Successfully mapped accelerometer INT1\n");
+    }
+
+    System_flush();
+
+}
+
+void readI2CBMI160(I2C_Handle handle, uint8_t ui8Reg) {
+    I2C_Transaction transaction;
+    txBufferAcc[0] = ui8Reg;
+
+    transaction.slaveAddress = BMI160_I2C_ADDRESS;
+    transaction.writeBuf = txBufferAcc;
+    transaction.writeCount = 1;
+    transaction.readBuf = rxBufferAcc;
+    transaction.readCount = 2;
+
+    Bool status = I2C_transfer(handle, &transaction);
+
+}
+
 /*
  *  ======== heartBeatFxn ========
  *  Toggle the Board_LED0. The Task_sleep is determined by arg0 which
@@ -75,7 +189,7 @@ I2C_Params i2cParams;
 Void heartBeatFxn(UArg arg0, UArg arg1)
 {
     // init sensors
-    initBMI160(i2c);
+    initI2CBMI160();
     initOPT3001(i2c);
 
     uint8_t convertedLux = 0;
@@ -84,9 +198,21 @@ Void heartBeatFxn(UArg arg0, UArg arg1)
 //        Task_sleep((unsigned int)arg0);
 //        GPIO_toggle(Board_LED0);
         convertedLux = readLuxOPT3001(i2c);
-        acceleration = readBMI160(i2c);
+//        acceleration = readBMI160(i2c);
 
-        System_printf("Lux: %d --- Acceleration(x,y,z): %d, %d, %d\n", convertedLux, acceleration[0], acceleration[1], acceleration[2]);
+//        System_printf("Lux: %d --- Acceleration(x,y,z): %d, %d, %d\n", convertedLux, acceleration[0], acceleration[1], acceleration[2]);
+
+        uint8_t x = 0;
+        uint8_t y = 0;
+        uint8_t z = 0;
+        readI2CBMI160(i2c, BMI160_X);
+        x = (int16_t) (rxBufferAcc[1]<<8) + rxBufferAcc[0];
+        readI2CBMI160(i2c, BMI160_Y);
+        y = (int16_t) (rxBufferAcc[1]<<8) + rxBufferAcc[0];
+        readI2CBMI160(i2c, BMI160_Z);
+        z = (int16_t) (rxBufferAcc[1]<<8) + rxBufferAcc[0];
+        System_printf("Lux: %d; Raw Acc x: %d y: %d z: %d\n", convertedLux, x, y, z);
+//        System_printf("Lux: %d\n", convertedLux);
         System_flush();
 
     }

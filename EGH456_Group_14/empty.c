@@ -310,6 +310,7 @@ int motor_rpmEdgeCount_1 = 0;
 int motor_rpmEdgeCount_2 = 0;
 int motor_rpm = 0;
 int motor_input_rpm = 300;
+int motor_input_rpm_internal;
 int duty = 50;
 
 
@@ -487,30 +488,30 @@ void motor_controller(){
     //get current edge count from counter
     IArg key = GateHwi_enter(motor_GateHwi);
     motor_rpmEdgeCount_2 = motor_edgeCount;
+    motor_input_rpm_internal = motor_input_rpm;
     GateHwi_leave(motor_GateHwi,key);
     int debugRPM = motor_rpm;
-    int debugInRPM = motor_input_rpm;
     int debugDuty = duty;
 
     motor_rpm = (int)(((((double)motor_rpmEdgeCount_2-(double)motor_rpmEdgeCount_1))/(double)MOTOR_POLES)*(double)MOTOR_RPM_CLOCK_PERIODS_PER_MIN);
 
     if(Mailbox_pend(rpm_mbxHandle, &rpm_msg, BIOS_NO_WAIT)){
-        motor_input_rpm = rpm_msg.rpm;
+        motor_input_rpm_internal = rpm_msg.rpm;
     }
 
-    if (motor_input_rpm == 0)
+    if (motor_input_rpm_internal == 0)
     {
         disableMotor();
     }
-    if (motor_input_rpm > 0 && motor_rpm < 10)
+    if (motor_input_rpm_internal > 0 && motor_rpm < 10)
     {
         enableMotor();
     }
-    if (motor_rpm > (double)motor_input_rpm && duty > 0)
+    if (motor_rpm > (double)motor_input_rpm_internal && duty > 0)
     {
         duty--;
     }
-    else if (motor_rpm < (double)motor_input_rpm && duty < MOTOR_MAX_DUTY)
+    else if (motor_rpm < (double)motor_input_rpm_internal && duty < MOTOR_MAX_DUTY)
     {
         duty++;
     }
@@ -542,7 +543,9 @@ int rpms[10] = {10, 1000, 900, 30, 50, 2000, 0, 5, 550, 5000};
 int i = 0;
 void motor_tester(){
     inputRPM = rpms[i];
-    motor_sendRPM(inputRPM);
+    IArg key = GateHwi_enter(motor_GateHwi);
+    motor_input_rpm = rpms[i];
+    GateHwi_leave(motor_GateHwi,key);
 
     i++;
 }
@@ -634,7 +637,7 @@ int main(void)
 
     taskParams.stack = &taskMotorTester_Stack;
     taskParams.priority = 2;
-    Task_construct(&taskMotorTester_Struct, (Task_FuncPtr) motor_info, &taskParams, NULL);
+//    Task_construct(&taskMotorTester_Struct, (Task_FuncPtr) motor_info, &taskParams, NULL);
 
     System_printf("Starting the 'Car'\n");
     /* SysMin will only print to the console when you call flush or exit */

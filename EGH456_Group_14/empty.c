@@ -301,6 +301,8 @@ void motor_initRPM();
 void motor_controller();
 void motor_initRPM();
 void motor_controller();
+void motor_tester();
+void motor_info();
 
 typedef struct rpm_MsgObj {
     Int         rpm;
@@ -321,16 +323,20 @@ motor_data_MsgObj motor_info_msg;
 int motor_rpmEdgeCount_1 = 0;
 int motor_rpmEdgeCount_2 = 0;
 int motor_rpm = 0;
-int motor_input_rpm = 300;
+int motor_input_rpm = 0;
+int motor_input_rpm_internal;
 int duty = 50;
 
 
 Hwi_Handle motor_Hwi_A, motor_Hwi_B, motor_Hwi_C;
 Clock_Handle motor_rpm_Timer;
+Clock_Handle motor_tester_Timer;
 GateHwi_Handle motor_GateHwi;
 Mailbox_Handle rpm_mbxHandle;
 Mailbox_Handle motor_info_mbxHandle;
-
+Mailbox_Params rpm_mbxParams;
+Mailbox_Struct rpm_mbxStruct;
+Mailbox_Struct motor_info_mbxStruct;
 
 
 void motor_initHall(void)
@@ -352,12 +358,11 @@ void motor_initHall(void)
 
 void motor_start(){
     enableMotor();
-    setDuty(duty);
-
-//    motor_hallStates[0] = GPIOPinRead(MOTOR_HALL_A_PORT, MOTOR_HALL_A_PIN);
-//    motor_hallStates[1] = GPIOPinRead(MOTOR_HALL_B_PORT, MOTOR_HALL_B_PIN);
-//    motor_hallStates[2] = GPIOPinRead(MOTOR_HALL_C_PORT, MOTOR_HALL_C_PIN);
-//    updateMotor(motor_hallStates[0],motor_hallStates[1],motor_hallStates[2]);
+    setDuty(30);
+    motor_hallStates[0] = GPIOPinRead(MOTOR_HALL_A_PORT, MOTOR_HALL_A_PIN);
+    motor_hallStates[1] = GPIOPinRead(MOTOR_HALL_B_PORT, MOTOR_HALL_B_PIN);
+    motor_hallStates[2] = GPIOPinRead(MOTOR_HALL_C_PORT, MOTOR_HALL_C_PIN);
+    updateMotor(motor_hallStates[0],motor_hallStates[1],motor_hallStates[2]);
 }
 
 
@@ -424,7 +429,7 @@ void motor_sendRPM(int rpm){
     if(rpm_msg.rpm != rpm)
     {
         rpm_msg.rpm = rpm;
-        Mailbox_post(rpm_mbxHandle, &rpm_msg, 500);
+        Mailbox_post(rpm_mbxHandle, &rpm_msg, BIOS_NO_WAIT);
     }
 }
 
@@ -433,17 +438,14 @@ void motor_initMailbox(){
 
     // init rpm setter mbx
     Error_Block rpm_mbxError;
-    Mailbox_Params rpm_mbxParams;
 
-    Mailbox_Struct rpm_mbxStruct;
     Mailbox_Params_init(&rpm_mbxParams);
-    Mailbox_construct(&rpm_mbxStruct,sizeof(rpm_MsgObj), 1, &rpm_mbxParams, &rpm_mbxError);
+    Mailbox_construct(&rpm_mbxStruct,sizeof(rpm_MsgObj), 5, &rpm_mbxParams, &rpm_mbxError);
     rpm_mbxHandle = Mailbox_handle(&rpm_mbxStruct);
     errorCheck(&rpm_mbxError);
 
     //init motor info getter mbx
-    Mailbox_Struct motor_info_mbxStruct;
-    Mailbox_construct(&rpm_mbxStruct,sizeof(motor_data_MsgObj), 1, &rpm_mbxParams, &rpm_mbxError);
+    Mailbox_construct(&rpm_mbxStruct,sizeof(motor_data_MsgObj), 5, &rpm_mbxParams, &rpm_mbxError);
     motor_info_mbxHandle = Mailbox_handle(&rpm_mbxStruct);
     errorCheck(&rpm_mbxError);
 }
@@ -468,7 +470,7 @@ void motor_initRPM(){
     Clock_Params_init(&rpm_ClockParams);
     rpm_ClockParams.period = MOTOR_RPM_CLOCK_PERIOD;
     rpm_ClockParams.startFlag = TRUE;
-    motor_rpm_Timer= Clock_create((Clock_FuncPtr)motor_controller, MOTOR_RPM_CLOCK_PERIOD, &rpm_ClockParams, &rpm_ClockError);
+    motor_rpm_Timer = Clock_create((Clock_FuncPtr)motor_controller, MOTOR_RPM_CLOCK_PERIOD, &rpm_ClockParams, &rpm_ClockError);
 
 
     errorCheck(&rpm_ClockError);
@@ -491,6 +493,16 @@ void motor_driver()
     GateHwi_leave(motor_GateHwi,key);
 }
 
+void motor_eStop()
+{
+    IArg key = GateHwi_enter(motor_GateHwi);
+    motor_input_rpm = 0;
+    GateHwi_leave(motor_GateHwi,key);
+    stopMotor(1);
+    disableMotor();
+
+}
+
 void motor_controller(){
 
     //set old edge count
@@ -499,70 +511,91 @@ void motor_controller(){
     //get current edge count from counter
     IArg key = GateHwi_enter(motor_GateHwi);
     motor_rpmEdgeCount_2 = motor_edgeCount;
+    motor_input_rpm_internal = motor_input_rpm;
     GateHwi_leave(motor_GateHwi,key);
     int debugRPM = motor_rpm;
+    int debugDuty = duty;
+
     motor_rpm = (int)(((((double)motor_rpmEdgeCount_2-(double)motor_rpmEdgeCount_1))/(double)MOTOR_POLES)*(double)MOTOR_RPM_CLOCK_PERIODS_PER_MIN);
 
-//    if(Mailbox_pend(rpm_mbxHandle, &rpm_msg, BIOS_NO_WAIT)){
-//        motor_input_rpm = rpm_msg.rpm;
-//    }
-
-    if (motor_input_rpm == 0)
+    if (motor_input_rpm_internal == 0)
     {
         disableMotor();
     }
-    if (motor_input_rpm > 0 && motor_rpm < 10)
+    if (motor_input_rpm_internal > 0 && motor_rpm < 10)
     {
         enableMotor();
     }
-    if (motor_rpm > (double)motor_input_rpm && duty > 0)
+    if (motor_rpm > (double)motor_input_rpm_internal && duty > 0)
     {
         duty--;
     }
-    else if (motor_rpm < (double)motor_input_rpm && duty < MOTOR_MAX_DUTY)
+    else if (motor_rpm < (double)motor_input_rpm_internal && duty < MOTOR_MAX_DUTY)
     {
         duty++;
     }
+    setDuty(duty);
+    motor_info_msg.rpm = motor_rpm;
+    motor_info_msg.duty = duty;
+    Mailbox_post(motor_info_mbxHandle, &motor_info_msg, BIOS_NO_WAIT);
 
 }
+void motor_initTester(){
+    Error_Block tester_ClockError;
+    Clock_Params tester_ClockParams;
 
+    int tester_period = MOTOR_RPM_CLOCK_PERIOD*500;
+    Clock_Params_init(&tester_ClockParams);
+    tester_ClockParams.period = tester_period;
+    tester_ClockParams.startFlag = TRUE;
+    motor_tester_Timer= Clock_create((Clock_FuncPtr)motor_tester, tester_period, &tester_ClockParams, &tester_ClockError);
+
+
+    errorCheck(&tester_ClockError);
+}
+
+/* MOtor Tester Vars */
+int currDuty= -1;
+int inputRPM = -1;
+int rpms[10] = {10, 1000, 900, 30, 50, 2000, 0, 5, 550, 5000};
+int i = 0;
 void motor_tester(){
-    System_printf("Starting Motor Tester!\n");
-    System_flush();
+    if (i < 10){
+        int inputRPM = rpms[i];
+        IArg key = GateHwi_enter(motor_GateHwi);
+        motor_input_rpm = rpms[i];
+        GateHwi_leave(motor_GateHwi,key);
 
-//    Task_sleep(100000);
 
-    int currDuty= -1;
-    int currRPM = -1;
-    int inputRPM;
-    int rpms[10] = {10, 1000, 900, 30, 50, 2000, 0, 5, 550, 5000};
-    int i = 0;
-    int j = 0;
-    while(1){
-//        if (j > 1000000000){
-//            inputRPM = rpms[i];
-////            motor_sendRPM(inputRPM);
-//
-////
-////            if(Mailbox_pend(motor_info_mbxHandle, &motor_info_msg, BIOS_WAIT_FOREVER)){
-////                currDuty = motor_info_msg.duty;
-////                currRPM = motor_info_msg.rpm;
-////            }
-//
-//
-//
-//            i++;
-//            if (i >= 9)
-//            {
-//                i = 0;
-//            }
-//        }
-//        j++;
-
-        System_printf("Input RPM: %d | Motor RPM: %d | Motor Duty: %d", inputRPM, currRPM, currDuty);
-        System_flush();
-        Task_sleep(1000);
     }
+
+    if (i == 10){
+        motor_eStop();
+    }
+
+    if(i == 11){
+       motor_start();
+       i = 0;
+       IArg key = GateHwi_enter(motor_GateHwi);
+       motor_input_rpm = rpms[i];
+       GateHwi_leave(motor_GateHwi,key);
+    }
+    i++;
+    GPIO_toggle(Board_LED1);
+}
+
+void motor_info(){
+//    while(1){
+
+//        if(Mailbox_pend(motor_info_mbxHandle, &motor_info_msg, BIOS_NO_WAIT)){
+//            currDuty = motor_info_msg.duty;
+//            currRPM = motor_info_msg.rpm;
+//        }
+//
+//        System_printf("Input RPM: %d | Motor RPM: %d | Motor Duty: %d\n", inputRPM, currRPM, currDuty);
+//        System_flush();
+//        Task_sleep(1000);
+//    }
 
 
 }
@@ -572,7 +605,8 @@ void motor_init(void){
     motor_initISR();
     motor_initRPM();
     motor_initGateHwi();
-//    motor_initMailbox();
+    motor_initTester();
+    motor_initMailbox();
 
     Error_Block motorError;
     bool initSuccess = initMotorLib(MOTOR_MAX_DUTY, &motorError);
@@ -632,12 +666,12 @@ int main(void)
     taskParams.arg0 = 1000;
     taskParams.stackSize = TASKSTACKSIZE;
     taskParams.stack = &task0Stack;
-    taskParams.priority = 1;
+    taskParams.priority = 2;
     Task_construct(&task0Struct, (Task_FuncPtr)heartBeatFxn, &taskParams, NULL);
 
-//    taskParams.stack = &taskMotorTester_Stack;
-//    taskParams.priority = 2;
-//    Task_construct(&taskMotorTester_Struct, (Task_FuncPtr) motor_tester, &taskParams, NULL);
+    taskParams.stack = &taskMotorTester_Stack;
+    taskParams.priority = 2;
+//    Task_construct(&taskMotorTester_Struct, (Task_FuncPtr) motor_info, &taskParams, NULL);
 
     System_printf("Starting the 'Car'\n");
     /* SysMin will only print to the console when you call flush or exit */

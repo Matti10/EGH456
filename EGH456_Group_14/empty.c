@@ -555,7 +555,7 @@ void motor_tester(){
 
 void motor_init(void){
     motor_initHall();
-    motor_initISR();
+//    motor_initISR();
     motor_initRPM();
     motor_initGateHwi();
 //    motor_initMailbox();
@@ -619,7 +619,7 @@ int main(void)
     taskParams.stackSize = TASKSTACKSIZE;
     taskParams.stack = &task0Stack;
     taskParams.priority = 1;
-//    Task_construct(&task0Struct, (Task_FuncPtr)heartBeatFxn, &taskParams, NULL);
+    Task_construct(&task0Struct, (Task_FuncPtr)heartBeatFxn, &taskParams, NULL);
 
     taskParams.stack = &taskMotorTester_Stack;
     taskParams.priority = 2;
